@@ -3,7 +3,7 @@
 import keras
 import tensorflow as tf
 
-import mlable.tensorflow.layers as _mtl
+import mlable.layers.embedding
 
 # FEED FORWARD ################################################################
 
@@ -11,29 +11,23 @@ import mlable.tensorflow.layers as _mtl
 class FeedForwardBlock(tf.keras.layers.Layer):
     def __init__(
         self,
-        dim: int,
+        input_dim: int,
         hidden_dim: int,
-        multiple_of: int,
-        ffn_dim_multiplier: float=1.,
         **kwargs
     ) -> None:
         super(FeedForwardBlock, self).__init__(**kwargs)
         # config
         self._config = {
-            'dim': dim,
-            'hidden_dim': hidden_dim,
-            'multiple_of': multiple_of,
-            'ffn_dim_multiplier': ffn_dim_multiplier,}
-        # shape
-        __hidden_dim = int(2 * hidden_dim * ffn_dim_multiplier / 3)
-        __hidden_dim = multiple_of * ((__hidden_dim + multiple_of - 1) // multiple_of)
+            'input_dim': input_dim,
+            'hidden_dim': hidden_dim,}
         # layers
-        self._w1 = tf.keras.layers.Dense(units=__hidden_dim, activation='silu', use_bias=False, kernel_initializer='glorot_uniform')
-        self._w2 = tf.keras.layers.Dense(units=dim, activation='linear', use_bias=False, kernel_initializer='glorot_uniform')
-        self._w3 = tf.keras.layers.Dense(units=__hidden_dim, activation='linear', use_bias=False, kernel_initializer='glorot_uniform')
+        self._gelu = tf.keras.layers.Dense(units=self._config['hidden_dim'], activation='gelu', use_bias=False, kernel_initializer='zeros', name='gate')
+        self._linear = tf.keras.layers.Dense(units=self._config['hidden_dim'], activation='linear', use_bias=False, kernel_initializer='zeros', name='linear')
+        self._output = tf.keras.layers.Dense(units=self._config['input_dim'], activation='linear', use_bias=False, kernel_initializer='zeros', name='output')
 
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
-        return self._w2(self._w1(inputs) * self._w3(inputs))
+        # gating mechanism
+        return self._output(self._gelu(inputs) * self._linear(inputs))
 
     def get_config(self) -> dict:
         __parent_config = super(FeedForwardBlock, self).get_config()
