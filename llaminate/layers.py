@@ -4,6 +4,7 @@ import keras
 import tensorflow as tf
 
 import mlable.layers.embedding
+import mlable.layers.transformer
 
 # FEED FORWARD ################################################################
 
@@ -30,8 +31,9 @@ class FeedForwardBlock(tf.keras.layers.Layer):
         return self._output(self._gelu(inputs) * self._linear(inputs))
 
     def get_config(self) -> dict:
-        __parent_config = super(FeedForwardBlock, self).get_config()
-        return {**__parent_config, **self._config}
+        __config = super(FeedForwardBlock, self).get_config()
+        __config.update(self._config)
+        return __config
 
     @classmethod
     def from_config(cls, config) -> tf.keras.layers.Layer:
@@ -46,10 +48,10 @@ class DecoderBlock(tf.keras.layers.Layer):
     def __init__(
         self,
         num_heads: int,
-        num_kv_heads: int,
         embed_dim: int,
         head_dim: int,
         hidden_dim: int,
+        epsilon: float=EPSILON,
         **kwargs
     ) -> None:
         # init
@@ -57,26 +59,25 @@ class DecoderBlock(tf.keras.layers.Layer):
         # config
         self._config = {
             'num_heads': num_heads,
-            'num_kv_heads': num_kv_heads,
             'embed_dim': embed_dim,
             'head_dim': head_dim,
             'hidden_dim': hidden_dim,}
         # layers
-        self._attention_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=EPSILON, rms_scaling=True, gamma_initializer='ones') # RMS
-        self._position = mlable.layers.embedding.RotaryPositionalEmbedding(head_dim=head_dim)
-        self._attention = tf.keras.layers.MultiHeadAttention(num_heads=num_heads, key_dim=head_dim, value_dim=head_dim, use_bias=False, kernel_initializer='glorot_uniform')
-        self._ffn_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=EPSILON, rms_scaling=True, gamma_initializer='ones') # RMS
+        self._attention_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, rms_scaling=True, gamma_initializer='ones') # RMS
+        self._position = mlable.layers.embedding.RotaryPositionalEmbedding(sequence_axis=1, feature_axis=-1)
+        self._attention = mlable.layers.transformer.CachedMultiHeadAttention(num_heads=num_heads, key_dim=head_dim, value_dim=head_dim, use_bias=False, kernel_initializer='glorot_uniform')
+        self._ffn_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, rms_scaling=True, gamma_initializer='ones') # RMS
         self._ffn = FeedForwardBlock(input_dim=embed_dim, hidden_dim=hidden_dim)
 
-    def call(self, inputs: tf.Tensor, positions: tf.Tensor, cache: tf.Tensor, mask: tf.Tensor) -> tf.Tensor:
+    def call(self, inputs: tf.Tensor, cache: tf.Tensor, mask: tf.Tensor=None, position: int=0) -> tf.Tensor:
         # residual
         __x = inputs
         # normalize
         __y = self._attention_norm(__x)
         # position embedding
-        __y = self._position(inputs=__y, positions=positions)
+        __yp = self._position(inputs=__y, offset=position)
         # attention
-        __y = self._attention(key=__y, query=__y, value=__y, use_causal_mask=True)
+        __y, __cache = self._attention(key=__yp, query=__yp, value=__y, cache=cache, step=position, attention_mask=mask, use_causal_mask=True)
         # residual
         __x = __y + __x
         # normalize
@@ -84,11 +85,12 @@ class DecoderBlock(tf.keras.layers.Layer):
         # augment
         __y = self._ffn(__y)
         # residual
-        return __y + __x
+        return __y + __x, __cache
 
     def get_config(self) -> dict:
-        __parent_config = super(DecoderBlock, self).get_config()
-        return {**__parent_config, **self._config}
+        __config = super(FeedForwardBlock, self).get_config()
+        __config.update(self._config)
+        return __config
 
     @classmethod
     def from_config(cls, config) -> tf.keras.layers.Layer:
