@@ -61,7 +61,8 @@ class DecoderBlock(tf.keras.layers.Layer):
             'num_heads': num_heads,
             'embed_dim': embed_dim,
             'head_dim': head_dim,
-            'hidden_dim': hidden_dim,}
+            'hidden_dim': hidden_dim,
+            'epsilon': epsilon,}
         # layers
         self._attention_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, rms_scaling=True, gamma_initializer='ones') # RMS
         self._position = mlable.layers.embedding.RotaryPositionalEmbedding(sequence_axis=1, feature_axis=-1)
@@ -88,7 +89,7 @@ class DecoderBlock(tf.keras.layers.Layer):
         return __y + __x, __cache
 
     def get_config(self) -> dict:
-        __config = super(FeedForwardBlock, self).get_config()
+        __config = super(DecoderBlock, self).get_config()
         __config.update(self._config)
         return __config
 
