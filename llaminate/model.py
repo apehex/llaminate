@@ -5,12 +5,6 @@ import tensorflow as tf
 
 import llaminate.layers
 
-# CACHE #######################################################################
-
-def create_cache(batch_dim: int, cache_dim: int, head_dim: int, num_layers: int, num_heads: int=None) -> tf.Tensor:
-    __shape = [num_layers, 2, batch_dim, cache_dim, num_heads, head_dim] if num_heads else [num_layers, 2, batch_dim, cache_dim, head_dim]
-    return tf.zeros(__shape, dtype=tf.float32)
-
 # TRANSFORMER #################################################################
 
 EPSILON = 1e-5
@@ -53,7 +47,7 @@ class Transformer(tf.keras.models.Model):
         self._norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, rms_scaling=True, gamma_initializer='ones') # RMS
         self._decoder = None
 
-    def call(self, inputs: tf.Tensor, cache: tf.Tensor, mask: tf.Tensor=None, position: int=0) -> tf.Tensor:
+    def call(self, inputs: tf.Tensor, cache: list=None, mask: tf.Tensor=None, position: int=0) -> tf.Tensor:
         # init
         __cache = cache
         # byte embedding
