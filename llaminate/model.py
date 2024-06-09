@@ -41,6 +41,7 @@ class Transformer(tf.keras.models.Model):
                 embed_dim=embed_dim,
                 head_dim=head_dim,
                 hidden_dim=hidden_dim,
+                sequence_axis=1,
                 epsilon=epsilon,
                 name='block-{}'.format(__i))
             for __i in range(num_layers)]

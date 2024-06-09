@@ -6,39 +6,6 @@ import tensorflow as tf
 import mlable.layers.embedding
 import mlable.layers.transformer
 
-# FEED FORWARD ################################################################
-
-@keras.saving.register_keras_serializable(package='blocks')
-class FeedForwardBlock(tf.keras.layers.Layer):
-    def __init__(
-        self,
-        input_dim: int,
-        hidden_dim: int,
-        **kwargs
-    ) -> None:
-        super(FeedForwardBlock, self).__init__(**kwargs)
-        # config
-        self._config = {
-            'input_dim': input_dim,
-            'hidden_dim': hidden_dim,}
-        # layers
-        self._gelu = tf.keras.layers.Dense(units=self._config['hidden_dim'], activation='gelu', use_bias=False, kernel_initializer='zeros', name='gate')
-        self._linear = tf.keras.layers.Dense(units=self._config['hidden_dim'], activation='linear', use_bias=False, kernel_initializer='zeros', name='linear')
-        self._output = tf.keras.layers.Dense(units=self._config['input_dim'], activation='linear', use_bias=False, kernel_initializer='zeros', name='output')
-
-    def call(self, inputs: tf.Tensor) -> tf.Tensor:
-        # gating mechanism
-        return self._output(self._gelu(inputs) * self._linear(inputs))
-
-    def get_config(self) -> dict:
-        __config = super(FeedForwardBlock, self).get_config()
-        __config.update(self._config)
-        return __config
-
-    @classmethod
-    def from_config(cls, config) -> tf.keras.layers.Layer:
-        return cls(**config)
-
 # DECODER #####################################################################
 
 EPSILON = 1e-5
@@ -51,6 +18,7 @@ class DecoderBlock(tf.keras.layers.Layer):
         embed_dim: int,
         head_dim: int,
         hidden_dim: int,
+        sequence_axis: int=1,
         epsilon: float=EPSILON,
         **kwargs
     ) -> None:
@@ -66,9 +34,9 @@ class DecoderBlock(tf.keras.layers.Layer):
         # layers
         self._attention_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, rms_scaling=True, gamma_initializer='ones') # RMS
         self._position = mlable.layers.embedding.RotaryPositionalEmbedding(sequence_axis=1, feature_axis=-1)
-        self._attention = mlable.layers.transformer.CachedMultiHeadAttention(num_heads=num_heads, key_dim=head_dim, value_dim=head_dim, use_bias=False, kernel_initializer='glorot_uniform')
+        self._attention = mlable.layers.transformer.CachedMultiHeadAttention(num_heads=num_heads, key_dim=head_dim, value_dim=head_dim, attention_axes=[sequence_axis], use_bias=False, kernel_initializer='glorot_uniform')
         self._ffn_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, rms_scaling=True, gamma_initializer='ones') # RMS
-        self._ffn = FeedForwardBlock(input_dim=embed_dim, hidden_dim=hidden_dim)
+        self._ffn = mlable.layers.transformer.FeedForwardGate(input_dim=embed_dim, hidden_dim=hidden_dim)
 
     def call(self, inputs: tf.Tensor, cache: tf.Tensor, mask: tf.Tensor=None, position: int=0) -> tf.Tensor:
         # residual
