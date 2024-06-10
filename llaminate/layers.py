@@ -32,10 +32,10 @@ class DecoderBlock(tf.keras.layers.Layer):
             'hidden_dim': hidden_dim,
             'epsilon': epsilon,}
         # layers
-        self._attention_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, rms_scaling=True, gamma_initializer='ones') # RMS
+        self._attention_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True, 
         self._position = mlable.layers.embedding.RotaryPositionalEmbedding(sequence_axis=1, feature_axis=-1)
         self._attention = mlable.layers.transformer.CachedMultiHeadAttention(num_heads=num_heads, key_dim=head_dim, value_dim=head_dim, attention_axes=[sequence_axis], use_bias=False, kernel_initializer='glorot_uniform')
-        self._ffn_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, rms_scaling=True, gamma_initializer='ones') # RMS
+        self._ffn_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True, 
         self._ffn = mlable.layers.transformer.FeedForwardGate(input_dim=embed_dim, hidden_dim=hidden_dim)
 
     def call(self, inputs: tf.Tensor, cache: tf.Tensor, mask: tf.Tensor=None, position: int=0) -> tf.Tensor:

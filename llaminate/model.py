@@ -45,7 +45,7 @@ class Transformer(tf.keras.models.Model):
                 epsilon=epsilon,
                 name='block-{}'.format(__i))
             for __i in range(num_layers)]
-        self._norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, rms_scaling=True, gamma_initializer='ones') # RMS
+        self._norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True, 
         self._decoder = None
 
     def call(self, inputs: tf.Tensor, cache: list=None, mask: tf.Tensor=None, position: int=0) -> tf.Tensor:
