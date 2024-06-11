@@ -63,15 +63,12 @@ class Transformer(tf.keras.models.Model):
         # normalize
         __y = self._norm(__y)
         # decompress
-        return self._decoder(__y), __cache
+        return __cache, self._decoder(__y)
 
-    def load_tokenizer(self, encoder: tf.keras.models.Model, decoder: tf.keras.models.Model) -> None:
+    def set_tokenizer(self, encoder: tf.keras.models.Model, decoder: tf.keras.models.Model) -> None:
         # set the weights
         self._encoder = encoder
         self._decoder = decoder
-        # freeze the layers
-        self._encoder.trainable = False
-        self._decoder.trainable = False
 
     def get_config(self) -> dict:
         __config = super(Transformer, self).get_config()

@@ -32,11 +32,11 @@ class TransformerTest(tf.test.TestCase):
         # transformer
         __m = llaminate.model.Transformer(num_layers=__meta['num_layers'], num_heads=__meta['num_heads'], cache_dim=__meta['cache_dim'], embed_dim=__meta['embed_dim'], head_dim=__meta['head_dim'], hidden_dim=__meta['hidden_dim'], epsilon=__meta['epsilon'])
         # set encoder + decoder
-        __m.load_tokenizer(encoder=__t._encoder, decoder=__t._decoder)
+        __m.set_tokenizer(encoder=__t._encoder, decoder=__t._decoder)
         # inputs
         __x = tf.ones((__meta['batch_dim'], math.prod(__meta['token_dim']) * __meta['cache_dim'], __meta['embed_dim']))
         # call
-        __y, __c = __m(inputs=__x, cache=__c, mask=None, position=4)
+        __c, __y = __m(inputs=__x, cache=__c, mask=None, position=4)
         # checks
         self.assertEqual(__y.shape, __x.shape)
         self.assertEqual(len(__c), __meta['num_layers'])

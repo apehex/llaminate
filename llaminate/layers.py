@@ -54,7 +54,7 @@ class DecoderBlock(tf.keras.layers.Layer):
         # augment
         __y = self._ffn(__y)
         # residual
-        return __y + __x, __cache
+        return __cache, __y + __x
 
     def get_config(self) -> dict:
         __config = super(DecoderBlock, self).get_config()
