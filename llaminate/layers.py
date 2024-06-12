@@ -38,7 +38,14 @@ class DecoderBlock(tf.keras.layers.Layer):
         self._ffn_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True, 
         self._ffn = mlable.layers.transformer.FeedForwardGate(input_dim=embed_dim, hidden_dim=hidden_dim)
 
-    def call(self, inputs: tf.Tensor, cache: tf.Tensor, mask: tf.Tensor=None, position: int=0) -> tf.Tensor:
+    def call(
+        self,
+        inputs: tf.Tensor,
+        cache: tf.Tensor=None,
+        mask: tf.Tensor=None,
+        position: int=0,
+        training: bool=False,
+    ) -> tf.Tensor:
         # residual
         __x = inputs
         # normalize
@@ -46,7 +53,7 @@ class DecoderBlock(tf.keras.layers.Layer):
         # position embedding
         __yp = self._position(inputs=__y, offset=position)
         # attention
-        __y, __cache = self._attention(key=__yp, query=__yp, value=__y, cache=cache, step=position, attention_mask=mask, use_causal_mask=True)
+        __y, __cache = self._attention(key=__yp, query=__yp, value=__y, cache=cache, step=position, training=training, attention_mask=mask, use_causal_mask=True, return_attention_scores=False)
         # residual
         __x = __y + __x
         # normalize
@@ -54,7 +61,7 @@ class DecoderBlock(tf.keras.layers.Layer):
         # augment
         __y = self._ffn(__y)
         # residual
-        return __cache, __y + __x
+        return __y + __x, __cache
 
     def get_config(self) -> dict:
         __config = super(DecoderBlock, self).get_config()

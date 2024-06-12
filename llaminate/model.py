@@ -48,22 +48,27 @@ class Transformer(tf.keras.models.Model):
         self._norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True, 
         self._decoder = None
 
-    def call(self, inputs: tf.Tensor, cache: list=None, mask: tf.Tensor=None, position: int=0) -> tf.Tensor:
+    def call(
+        self,
+        inputs: tf.Tensor,
+        cache: list=None,
+        mask: tf.Tensor=None,
+        position: int=0,
+        training: bool=False,
+    ) -> tf.Tensor:
         # init
-        __cache = cache
+        __cache = self._config['num_layers'] * [None] if cache is None else cache
         # byte embedding
         __y = self._encoder(inputs)
         # blocks
         for __i, __block in enumerate(self._blocks):
-            __layer_cache = __cache[__i] if __cache is not None else None
-            __layer_cache, __y = __block(inputs=__y, cache=__layer_cache, mask=mask, position=position)
-            # update the cache
-            if __cache is not None:
-                __cache[__i] = __layer_cache
+            __y, __cache[__i] = __block(inputs=__y, cache=__cache[__i], mask=mask, position=position, training=training)
         # normalize
         __y = self._norm(__y)
         # decompress
-        return __cache, self._decoder(__y)
+        __y = self._decoder(__y)
+        # ignore cache during training
+        return __y if training else (__y, __cache)
 
     def set_tokenizer(self, encoder: tf.keras.models.Model, decoder: tf.keras.models.Model) -> None:
         # set the weights
