@@ -56,7 +56,7 @@ class Transformer(tf.keras.models.Model):
         # blocks
         for __i, __block in enumerate(self._blocks):
             __layer_cache = __cache[__i] if __cache is not None else None
-            __y, __layer_cache = __block(inputs=__y, cache=__layer_cache, mask=mask, position=position)
+            __layer_cache, __y = __block(inputs=__y, cache=__layer_cache, mask=mask, position=position)
             # update the cache
             if __cache is not None:
                 __cache[__i] = __layer_cache

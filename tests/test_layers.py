@@ -28,7 +28,7 @@ class DecoderBlockTest(tf.test.TestCase):
     def test_block_shape(self):
         for __case in self._test_cases:
             __layer = llaminate.layers.DecoderBlock(**__case['init'])
-            __outputs, __cache = __layer(**__case['input'])
+            __cache, __outputs = __layer(**__case['input'])
             # check the output
             if 'shape' in __case['output']:
                 self.assertEqual(tuple(__outputs.shape), __case['output']['shape'])
