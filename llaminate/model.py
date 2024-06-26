@@ -54,7 +54,8 @@ class Transformer(tf.keras.models.Model):
         cache: list=None,
         mask: tf.Tensor=None,
         position: int=0,
-        training: bool=False,
+        training: bool=True,
+        **kwargs,
     ) -> tf.Tensor:
         # init
         __cache = self._config['num_layers'] * [None] if cache is None else cache
