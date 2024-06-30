@@ -48,15 +48,28 @@ class Transformer(tf.keras.models.Model):
         self._norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True, 
         self._decoder = None
 
-    def call(
+    def call(self, inputs: tf.Tensor, **kwargs) -> tf.Tensor:
+        # byte embedding
+        __y = self._encoder(inputs)
+        # blocks
+        for __i, __block in enumerate(self._blocks):
+            __y, _ = __block(inputs=__y, position=0, training=True, cache=None, mask=None)
+        # normalize
+        __y = self._norm(__y)
+        # decompress
+        __y = self._decoder(__y)
+        # ignore cache during training
+        return __y
+
+    def infer(
         self,
         inputs: tf.Tensor,
-        cache: list=None,
         mask: tf.Tensor=None,
+        cache: list=None,
         position: int=0,
-        training: bool=True,
+        training: bool=False,
         **kwargs,
-    ) -> tf.Tensor:
+    ) -> tuple:
         # init
         __cache = self._config['num_layers'] * [None] if cache is None else cache
         # byte embedding
@@ -68,8 +81,8 @@ class Transformer(tf.keras.models.Model):
         __y = self._norm(__y)
         # decompress
         __y = self._decoder(__y)
-        # ignore cache during training
-        return __y if training else (__y, __cache)
+        # used in inference only
+        return (__y, __cache)
 
     def set_tokenizer(self, encoder: tf.keras.models.Model, decoder: tf.keras.models.Model) -> None:
         # set the weights
