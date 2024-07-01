@@ -85,10 +85,8 @@ N_BATCH_DIM = 128
 N_SAMPLE_DIM = N_CACHE_DIM * TOKUN_FACTOR
 
 N_EPOCHS = 8
-N_EPOCHS_RAMPUP = 0
-N_EPOCHS_SUSTAIN = 0
 
-R_MIN, R_MAX, R_EXP = (0.1 if IMPORT else 1.) * 0.001 * 0.001, (0.1 if IMPORT else 1.) * 0.1 * 0.001, 0.8
+R_0, B_1, B_2 = (0.1 if IMPORT else 1.) * 0.001, 0.9, 0.99
 
 CLASS_WEIGHTS = {__c: 0.3 if __c == 0 else 1. for __c in range(256)} # there are 3 times more 0s than other bytes
 
@@ -204,7 +202,7 @@ with DISTRIBUTION_STRATEGY.scope():
 
     # COMPILE #################################################################
     LLAMINATE.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=R_MAX),
+        optimizer=tf.keras.optimizers.Adam(learning_rate=R_0, beta_1=B_1, beta_2=B_2),
         loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False, label_smoothing=0., axis=-1, reduction=tf.keras.losses.Reduction.SUM_OVER_BATCH_SIZE, name='loss'),
         metrics=[byte_accuracy, character_accuracy, token_accuracy])
 
@@ -213,7 +211,6 @@ with DISTRIBUTION_STRATEGY.scope():
 if TRAINING:
     with DISTRIBUTION_STRATEGY.scope():
         # callbacks
-        lr_callback = tf.keras.callbacks.LearningRateScheduler(functools.partial(mlable.optimizers.learning_rate_hokusai, lr_min=R_MIN, lr_max=R_MAX, lr_exp=R_EXP, rampup=N_EPOCHS_RAMPUP, sustain=N_EPOCHS_SUSTAIN), verbose=True)
         cp_callback = tf.keras.callbacks.ModelCheckpoint(LLAMINATE_MODEL_PATH, monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=False, mode='auto', save_freq='epoch')
         tb_callback = tf.keras.callbacks.TensorBoard(log_dir=LLAMINATE_LOGS_PATH)
         # model fitting
@@ -226,4 +223,4 @@ if TRAINING:
             validation_freq=list(range(1, N_EPOCHS + 1, 1)),
             class_weight=CLASS_WEIGHTS,
             verbose=1,
-            callbacks=[lr_callback, cp_callback, tb_callback])
+            callbacks=[cp_callback, tb_callback])
