@@ -71,11 +71,11 @@ LLAMINATE_PATH = 'llaminate.keras'
 
 # TOKENIZER PARAMETERS ########################################################
 
-TOKUN_DIM = [4, 16]
+TOKUN_DIM = [16, 4]
 TOKUN_FACTOR = math.prod(TOKUN_DIM) // 4
 TOKUN_VERSION = tokun.meta.version(units=TOKUN_DIM, axis=1)
 
-TOKUN_LABEL = '5.3'
+TOKUN_LABEL = '7.7'
 TOKUN_PATH = 'tokun.keras'
 TOKUN_URL = 'https://github.com/apehex/tokun/raw/main/models/{}/{}/{}.keras'.format(*TOKUN_VERSION, TOKUN_LABEL)
 
@@ -189,7 +189,7 @@ with DISTRIBUTION_STRATEGY.scope():
 
     # WEIGHTS #################################################################
     if IMPORT and os.path.isfile(LLAMINATE_MODEL_PATH):
-        LLAMINATE = tf.keras.models.load_model(LLAMINATE_MODEL_PATH)
+        LLAMINATE = tf.keras.models.load_model(LLAMINATE_MODEL_PATH, compile=False)
     else:
         LLAMINATE = llaminate.model.Transformer(num_layers=N_LAYERS_NUM, num_heads=N_HEADS_NUM, cache_dim=N_CACHE_DIM, embed_dim=N_EMBED_DIM, head_dim=N_HEAD_DIM, hidden_dim=N_HIDDEN_DIM)
 
