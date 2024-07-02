@@ -18,16 +18,14 @@ def _combine(inputs: tf.Tensor, features: list=[], separator: str='\x1d') -> tf.
 def _offset(inputs: tf.Tensor, ticks: int) -> tuple:
     return (tokun.pipeline.offset(data=inputs, ticks=ticks), inputs)
 
-def _reshape(input: tf.Tensor, sample_dim: int, batch_dim: int=None) -> tf.Tensor:
+def _reshape(inputs: tf.Tensor, sample_dim: int, batch_dim: int=None) -> tf.Tensor:
     __shape = (batch_dim, 4 * sample_dim) if batch_dim else (4 * sample_dim,)
     return tf.reshape(inputs, shape=__shape)
 
-def _embed(xy: tuple, embed_dim: int, encoder: callable=None) -> tuple:
-    __x, __y = xy
+def _embed(inputs: tf.Tensor, targets: tf.Tensor, embed_dim: int, encoder: callable=None) -> tuple:
+    __x, __y = inputs, tf.one_hot(targets, depth=embed_dim, axis=-1)
     if encoder is not None:
-        __x, __y = encoder(__x), encoder(__y)
-    else:
-        __x, __y = __x, tf.one_hot(__y, depth=embed_dim, axis=-1)
+        __x, __y = encoder(inputs), encoder(targets)
     return (__x, __y)
 
 # PREPROCESS ##################################################################
