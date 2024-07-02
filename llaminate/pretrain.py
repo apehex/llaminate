@@ -20,8 +20,8 @@ import mlable.optimizers
 import tokun.data
 import tokun.evaluation
 import tokun.meta
-import tokun.pipeline
 import tokun.model
+import tokun.pipeline
 
 import llaminate.model
 import llaminate.pipeline
