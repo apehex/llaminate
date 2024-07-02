@@ -52,14 +52,14 @@ class CacheTransformer(tf.keras.models.Model):
 
     def call(self, inputs: tf.Tensor, **kwargs) -> tf.Tensor:
         # byte embedding
-        __y = self._encoder(inputs)
+        __y = self._encoder(inputs) if self._encoder is not None else inputs
         # blocks
-        for __i, __block in enumerate(self._blocks):
+        for __block in self._blocks:
             __y, _ = __block(inputs=__y, position=0, training=True, cache=None, mask=None)
         # normalize
         __y = self._norm(__y)
         # decompress
-        __y = self._decoder(__y)
+        __y = self._decoder(__y) if self._decoder is not None else __y
         # ignore cache during training
         return __y
 
@@ -75,14 +75,14 @@ class CacheTransformer(tf.keras.models.Model):
         # init
         __cache = self._config['num_layers'] * [None] if cache is None else cache
         # byte embedding
-        __y = self._encoder(inputs)
+        __y = self._encoder(inputs) if self._encoder is not None else inputs
         # blocks
         for __i, __block in enumerate(self._blocks):
             __y, __cache[__i] = __block(inputs=__y, cache=__cache[__i], mask=mask, position=position, training=training)
         # normalize
         __y = self._norm(__y)
         # decompress
-        __y = self._decoder(__y)
+        __y = self._decoder(__y) if self._decoder is not None else __y
         # used in inference only
         return (__y, __cache)
 
@@ -143,14 +143,14 @@ class Transformer(tf.keras.models.Model):
 
     def call(self, inputs: tf.Tensor, **kwargs) -> tf.Tensor:
         # byte embedding
-        __y = self._encoder(inputs)
+        __y = self._encoder(inputs) if self._encoder is not None else inputs
         # blocks
-        for __i, __block in enumerate(self._blocks):
+        for __block in self._blocks:
             __y = __block(inputs=__y, **kwargs)
         # normalize
         __y = self._norm(__y)
         # decompress
-        __y = self._decoder(__y)
+        __y = self._decoder(__y) if self._decoder is not None else __y
         # ignore cache during training
         return __y
 
