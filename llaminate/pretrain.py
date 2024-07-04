@@ -210,7 +210,7 @@ with DISTRIBUTION_STRATEGY.scope():
     # COMPILE #################################################################
     LLAMINATE.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=R_0, beta_1=B_1, beta_2=B_2),
-        loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False, label_smoothing=0., axis=-1, reduction=tf.keras.losses.Reduction.SUM_OVER_BATCH_SIZE, name='loss'),
+        loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False, label_smoothing=0., axis=-1, reduction=tf.keras.losses.Reduction.SUM_OVER_BATCH_SIZE, name='cce_loss'),
         metrics=[byte_accuracy, character_accuracy, token_accuracy])
 
 # TRAIN #######################################################################
@@ -222,11 +222,11 @@ if TRAINING:
         tb_callback = tf.keras.callbacks.TensorBoard(log_dir=LLAMINATE_LOGS_PATH)
         # model fitting
         TRAINING_HISTORY = LLAMINATE.fit(
-            x=DATASETS['ft-stack-exchange']['train'].batch(N_BATCH_DIM).prefetch(1),
+            x=DATASETS['ft-stack-exchange']['train'].prefetch(1),
             batch_size=None,
             epochs=N_EPOCHS,
             validation_split=None,
-            validation_data=DATASETS['ft-stack-exchange']['test'].batch(N_BATCH_DIM).prefetch(1),
+            validation_data=DATASETS['ft-stack-exchange']['test'].prefetch(1),
             validation_freq=list(range(1, N_EPOCHS + 1, 1)),
             class_weight=CLASS_WEIGHTS,
             verbose=1,

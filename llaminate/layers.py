@@ -25,7 +25,7 @@ class CacheDecoderBlock(tf.keras.layers.Layer):
         **kwargs
     ) -> None:
         # init
-        super(DecoderBlock, self).__init__(**kwargs)
+        super(CacheDecoderBlock, self).__init__(**kwargs)
         # config
         self._config = {
             'num_heads': num_heads,
@@ -66,7 +66,7 @@ class CacheDecoderBlock(tf.keras.layers.Layer):
         return __y + __x, __cache
 
     def get_config(self) -> dict:
-        __config = super(DecoderBlock, self).get_config()
+        __config = super(CacheDecoderBlock, self).get_config()
         __config.update(self._config)
         return __config
 

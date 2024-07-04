@@ -25,7 +25,7 @@ class CacheTransformer(tf.keras.models.Model):
         **kwargs
     ) -> None:
         # init
-        super(Transformer, self).__init__(**kwargs)
+        super(CacheTransformer, self).__init__(**kwargs)
         # config
         self._config = {
             'num_layers': num_layers,
@@ -69,7 +69,6 @@ class CacheTransformer(tf.keras.models.Model):
         mask: tf.Tensor=None,
         cache: list=None,
         position: int=0,
-        training: bool=False,
         **kwargs,
     ) -> tuple:
         # init
@@ -78,7 +77,7 @@ class CacheTransformer(tf.keras.models.Model):
         __y = self._encoder(inputs) if self._encoder is not None else inputs
         # blocks
         for __i, __block in enumerate(self._blocks):
-            __y, __cache[__i] = __block(inputs=__y, cache=__cache[__i], mask=mask, position=position, training=training)
+            __y, __cache[__i] = __block(inputs=__y, cache=__cache[__i], mask=mask, position=position, training=False)
         # normalize
         __y = self._norm(__y)
         # decompress
@@ -92,7 +91,7 @@ class CacheTransformer(tf.keras.models.Model):
         self._decoder = decoder
 
     def get_config(self) -> dict:
-        __config = super(Transformer, self).get_config()
+        __config = super(CacheTransformer, self).get_config()
         __config.update(self._config)
         return __config
 
