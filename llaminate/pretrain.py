@@ -155,8 +155,11 @@ for __name in DATASETS:
 # PREPROCESS ##################################################################
 
 for __name in DATASETS:
-    DATASETS[__name]['train'] = llaminate.pipeline.preprocess(dataset=DATASETS[__name]['train'], token_dim=math.prod(TOKUN_DIM), embed_dim=N_EMBED_DIM, sample_dim=N_SAMPLE_DIM, features=DATASETS_META[__name]['features'])
-    DATASETS[__name]['test'] = llaminate.pipeline.preprocess(dataset=DATASETS[__name]['test'], token_dim=math.prod(TOKUN_DIM), embed_dim=N_EMBED_DIM, sample_dim=N_SAMPLE_DIM, features=DATASETS_META[__name]['features'])
+    # specialized preprocessing fn
+    __preprocess = functools.partial(llaminate.pipeline.preprocess, batch_dim=N_BATCH_DIM, token_dim=math.prod(TOKUN_DIM), embed_dim=N_EMBED_DIM, sample_dim=N_SAMPLE_DIM, features=DATASETS_META[__name]['features'])
+    # apply
+    DATASETS[__name]['train'] = DATASETS[__name]['train'].batch(N_BATCH_DIM).map(__preprocess, num_parallel_calls=tf.data.AUTOTUNE)
+    DATASETS[__name]['test'] = DATASETS[__name]['test'].batch(N_BATCH_DIM).map(__preprocess, num_parallel_calls=tf.data.AUTOTUNE)
 
 # CONCATENATE #################################################################
 
