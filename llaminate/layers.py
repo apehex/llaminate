@@ -44,7 +44,7 @@ class CacheDecoderBlock(tf.keras.layers.Layer):
         self,
         inputs: tf.Tensor,
         cache: tf.Tensor=None,
-        mask: tf.Tensor=None,
+        attention_mask: tf.Tensor=None,
         position: int=0,
         training: bool=False,
     ) -> tf.Tensor:
@@ -55,7 +55,7 @@ class CacheDecoderBlock(tf.keras.layers.Layer):
         # position embedding
         __yp = self._position(inputs=__y, offset=position)
         # attention
-        __y, __cache = self._attention(key=__yp, query=__yp, value=__y, cache=cache, step=position, training=training, attention_mask=mask, use_causal_mask=True, return_attention_scores=False)
+        __y, __cache = self._attention(key=__yp, query=__yp, value=__y, cache=cache, step=position, training=training, attention_mask=attention_mask, use_causal_mask=True, return_attention_scores=False)
         # residual
         __x = __y + __x
         # normalize
@@ -107,7 +107,7 @@ class DecoderBlock(tf.keras.layers.Layer):
     def call(
         self,
         inputs: tf.Tensor,
-        mask: tf.Tensor=None,
+        attention_mask: tf.Tensor=None,
         training: bool=False,
     ) -> tf.Tensor:
         # residual
@@ -117,7 +117,7 @@ class DecoderBlock(tf.keras.layers.Layer):
         # position embedding
         __yp = self._position(inputs=__y, offset=0)
         # attention
-        __y = self._attention(key=__yp, query=__yp, value=__y, training=training, attention_mask=mask, use_causal_mask=True, return_attention_scores=False)
+        __y = self._attention(key=__yp, query=__yp, value=__y, training=training, attention_mask=attention_mask, use_causal_mask=True, return_attention_scores=False)
         # residual
         __x = __y + __x
         # normalize

@@ -1,6 +1,5 @@
 import math
 
-import numpy as np
 import tensorflow as tf
 
 import tokun.model
@@ -13,7 +12,6 @@ import llaminate.utils
 class CacheTransformerTest(tf.test.TestCase):
 
     def test_shapes(self):
-        """Test with a mask tensor."""
         __meta = {
             'cache': {
                 'num_layers': 2,
@@ -26,8 +24,7 @@ class CacheTransformerTest(tf.test.TestCase):
                 'feature_axis': -1,
                 'token_dim': [4, 4],
                 'encoding_dim': 256,
-                'embedding_dim': 256,
-                'latent_dim': 256,},
+                'embedding_dim': 256,},
             'llaminate': {
                 'num_layers': 2,
                 'num_heads': 4,
@@ -51,26 +48,24 @@ class CacheTransformerTest(tf.test.TestCase):
         # checks
         self.assertEqual(tf.argmax(__y, axis=-1).shape, __x.shape)
         # infer
-        __y, __c = __m.infer(inputs=__x, cache=__c, mask=None, position=4, training=False)
+        __y, __c = __m.infer(inputs=__x, cache=__c, attention_mask=None, position=4, training=False)
         # checks
         self.assertEqual(tf.argmax(__y, axis=-1).shape, __x.shape)
-        self.assertEqual(len(__c), __meta['num_layers'])
-        self.assertEqual(__c[0].shape, (2, __meta['batch_dim'], __meta['cache_dim'], __meta['num_heads'], __meta['head_dim']))
+        self.assertEqual(len(__c), __meta['llaminate']['num_layers'])
+        self.assertEqual(__c[0].shape, (2, __meta['cache']['batch_dim'], __meta['cache']['cache_dim'], __meta['cache']['num_heads'], __meta['cache']['head_dim']))
 
 # WITH CACHE ##################################################################
 
-class CacheTransformerTest(tf.test.TestCase):
+class TransformerTest(tf.test.TestCase):
 
     def test_shapes(self):
-        """Test with a mask tensor."""
         __meta = {
             'tokun': {
                 'sequence_axis': 1,
                 'feature_axis': -1,
                 'token_dim': [4, 4],
                 'encoding_dim': 256,
-                'embedding_dim': 256,
-                'latent_dim': 256,},
+                'embedding_dim': 256,},
             'llaminate': {
                 'num_layers': 2,
                 'num_heads': 4,
@@ -88,6 +83,6 @@ class CacheTransformerTest(tf.test.TestCase):
         # inputs
         __x = tf.ones((1, math.prod(__meta['tokun']['token_dim']) * __meta['llaminate']['cache_dim']))
         # call
-        __y = __m.call(inputs=__x, training=False)
+        __y = __m.call(inputs=__x, attention_mask=None, training=False)
         # checks
         self.assertEqual(tf.argmax(__y, axis=-1).shape, __x.shape)

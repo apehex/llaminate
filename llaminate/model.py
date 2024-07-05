@@ -50,12 +50,12 @@ class CacheTransformer(tf.keras.models.Model):
         self._norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True, 
         self._decoder = None
 
-    def call(self, inputs: tf.Tensor, **kwargs) -> tf.Tensor:
+    def call(self, inputs: tf.Tensor, attention_mask: tf.Tensor=None, **kwargs) -> tf.Tensor:
         # byte embedding
         __y = self._encoder(inputs) if self._encoder is not None else inputs
         # blocks
         for __block in self._blocks:
-            __y, _ = __block(inputs=__y, position=0, training=True, cache=None, mask=None)
+            __y, _ = __block(inputs=__y, attention_mask=attention_mask, position=0, training=True, cache=None)
         # normalize
         __y = self._norm(__y)
         # decompress
@@ -66,7 +66,7 @@ class CacheTransformer(tf.keras.models.Model):
     def infer(
         self,
         inputs: tf.Tensor,
-        mask: tf.Tensor=None,
+        attention_mask: tf.Tensor=None,
         cache: list=None,
         position: int=0,
         **kwargs,
@@ -77,7 +77,7 @@ class CacheTransformer(tf.keras.models.Model):
         __y = self._encoder(inputs) if self._encoder is not None else inputs
         # blocks
         for __i, __block in enumerate(self._blocks):
-            __y, __cache[__i] = __block(inputs=__y, cache=__cache[__i], mask=mask, position=position, training=False)
+            __y, __cache[__i] = __block(inputs=__y, cache=__cache[__i], attention_mask=attention_mask, position=position, training=False)
         # normalize
         __y = self._norm(__y)
         # decompress
@@ -140,12 +140,12 @@ class Transformer(tf.keras.models.Model):
         self._norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True, 
         self._decoder = None
 
-    def call(self, inputs: tf.Tensor, **kwargs) -> tf.Tensor:
+    def call(self, inputs: tf.Tensor, attention_mask: tf.Tensor=None, **kwargs) -> tf.Tensor:
         # byte embedding
         __y = self._encoder(inputs) if self._encoder is not None else inputs
         # blocks
         for __block in self._blocks:
-            __y = __block(inputs=__y, **kwargs)
+            __y = __block(inputs=__y, attention_mask=attention_mask, **kwargs)
         # normalize
         __y = self._norm(__y)
         # decompress
