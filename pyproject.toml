@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "llaminate"
-version = "0.3.5"
+version = "0.3.6"
 description = "Optimized version of llama3 / gemma."
 authors = ["apehex <apehex@protonmail.com>"]
 readme = ".github/README.md"
@@ -10,8 +10,8 @@ packages = [{include = "llaminate"}]
 python = ">=3.10, <3.12"
 tensorflow = ">=2.15"
 tensorflow-datasets = ">=4.9"
-mlable = {path = "../mlable/", develop = true} # mlable = ">=0.5"
-tokun = {path = "../tokun/", develop = true} # tokun = ">=0.9"
+mlable = ">=0.5"
+tokun = ">=0.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
