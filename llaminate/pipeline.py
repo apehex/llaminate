@@ -7,7 +7,7 @@ import tokun.pipeline
 
 # PREPROCESS ##################################################################
 
-def preprocess(inputs: tf.Tensor, token_dim: int, embed_dim: int, batch_dim: int, sample_dim: int, features: list, separator: str='\x1d', mask: bool=True) -> tf.data.Dataset:
+def preprocess(inputs: tf.Tensor, token_dim: int, embed_dim: int, batch_dim: int, sample_dim: int, features: list, separator: str='\x1d', weight: bool=True) -> tf.data.Dataset:
     # specialized operations
     __encode = functools.partial(tokun.pipeline.encode, token_size=token_dim, sample_size=sample_dim)
     __reshape = functools.partial(tf.reshape, shape=(batch_dim, 4 * sample_dim))
@@ -22,7 +22,8 @@ def preprocess(inputs: tf.Tensor, token_dim: int, embed_dim: int, batch_dim: int
     # one-hot encoding for the targets => (B, 4 * S, E) int (bool)
     __inputs, __targets = __inputs, tf.one_hot(__targets, depth=embed_dim, axis=-1)
     # sequence mask to ignore padding during training
-    __mask = tf.not_equal(__inputs, 0) # byte level mask
-    __mask = mlable.masking.reduce_any(mask=__mask, group=4, axis=-1, keepdims=True) # character level mask, but expressed byte by byte
+    __weights = tf.not_equal(__inputs, 0) # byte level mask
+    __weights = mlable.masking.reduce_any(mask=__weights, group=4, axis=-1, keepdims=True) # character level mask, but expressed byte by byte
+    __weights = tf.cast(__weights, dtype=__targets.dtype)
     # chain the operations
-    return (__inputs, __targets, __mask) if mask else (__inputs, __targets)
+    return (__inputs, __targets, __weights) if weight else (__inputs, __targets)
