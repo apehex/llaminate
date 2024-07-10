@@ -13,9 +13,7 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 import mlable.data
-import mlable.io
 import mlable.metrics
-import mlable.optimizers
 
 import tokun.data
 import tokun.evaluation
@@ -111,64 +109,60 @@ DATASETS_META = {
     'pt-wikipedia': {
         'path': 'wikimedia/wikipedia',
         'name': '20231101.en',
-        'train': 'train[:90%]',
-        'test': 'train[-10%:]',
+        'splits': [f'train[{__p}%:{__p + 10}%]' for __p in range(0, 100, 10)],
         'features': ['text'],},
     'ft-retro-ascii-art': {
         'path': 'jdpressman/retro-ascii-art-v1',
         'name': None,
         'train': 'train',
-        'test': 'validation',
+        'splits': [f'train[{__p}%:{__p + 10}%]+validation[{__p}%:{__p + 10}%]' for __p in range(0, 100, 10)],
         'features': ['prompt', 'art_aic'],},
     'ft-stack-exchange': {
         'path': 'Alignment-Lab-AI/Stack-Exchange-April',
         'name': None,
-        'train': 'train[:90%]',
-        'test': 'train[-10%:]',
+        'splits': [f'train[{__p}%:{__p + 10}%]' for __p in range(0, 100, 10)],
         'features': ['question', 'answer'],},
     'ft-math': {
         'path': 'hendrycks/competition_math',
         'name': None,
-        'train': 'train',
-        'test': 'test',
+        'splits': [f'train[{__p}%:{__p + 10}%]+test[{__p}%:{__p + 10}%]' for __p in range(0, 100, 10)],
         'features': ['problem', 'solution'],},}
 
 # DOWNLOAD  DATASETS ##########################################################
 
 DATASETS = {
-    __name: {
-        'train': ds.load_dataset(path=__args['path'], name=__args['name'], split=__args['train']).to_tf_dataset(shuffle=True, batch_size=None),
-        'test': ds.load_dataset(path=__args['path'], name=__args['name'], split=__args['test']).to_tf_dataset(shuffle=True, batch_size=None),}
+    __name: [
+        ds.load_dataset(path=__args['path'], name=__args['name'], split=__s).to_tf_dataset(shuffle=True, batch_size=None)
+        for __s in __args['splits']]
     for __name, __args in DATASETS_META.items()}
 
 # DATASET STATS ###############################################################
 
-STATS = {__n: {'min': 0, 'max': 0, 'mean': 0} for __n in DATASETS}
-
-for __name in DATASETS:
-    # sample each dataset
-    __m = DATASETS_META[__name]
-    __b = iter(DATASETS[__name]['train'])
-    __s = [next(__b) for _ in range(128)]
-    __l = [len(tf.strings.join(inputs=[__e[__f] for __f in __m['features']], separator='\x1d').numpy()) for __e in __s]
-    # save the stats
-    STATS[__name]['min'] = min(__l)
-    STATS[__name]['max'] = max(__l)
-    STATS[__name]['mean'] = tf.reduce_mean(__l).numpy()
+STATS = {__n: mlable.data.stats(dataset=DATASETS[__n][0], features=DATASETS_META[__n]['features'], count=2048) for __n in DATASETS}
 
 # PREPROCESS ##################################################################
 
 for __name in DATASETS:
     # specialized preprocessing fn
-    __preprocess = functools.partial(llaminate.pipeline.preprocess, batch_dim=N_BATCH_DIM, token_dim=math.prod(TOKUN_DIM), embed_dim=N_EMBED_DIM, sample_dim=N_SAMPLE_DIM, features=DATASETS_META[__name]['features'])
+    __preprocess = functools.partial(
+        llaminate.pipeline.preprocess,
+        batch_dim=N_BATCH_DIM,
+        token_dim=math.prod(TOKUN_DIM),
+        embed_dim=N_EMBED_DIM,
+        sample_dim=N_SAMPLE_DIM,
+        features=DATASETS_META[__name]['features'])
     # apply
-    DATASETS[__name]['train'] = DATASETS[__name]['train'].batch(N_BATCH_DIM, drop_remainder=True, num_parallel_calls=tf.data.AUTOTUNE).map(__preprocess, num_parallel_calls=tf.data.AUTOTUNE)
-    DATASETS[__name]['test'] = DATASETS[__name]['test'].batch(N_BATCH_DIM, drop_remainder=True, num_parallel_calls=tf.data.AUTOTUNE).map(__preprocess, num_parallel_calls=tf.data.AUTOTUNE)
+    for __idx in range(len(DATASETS[__name])):
+        DATASETS[__name][__idx] = DATASETS[__name][__idx].batch(
+            N_BATCH_DIM,
+            drop_remainder=True,
+            num_parallel_calls=tf.data.AUTOTUNE
+        ).map(__preprocess, num_parallel_calls=tf.data.AUTOTUNE)
 
 # CONCATENATE #################################################################
 
-DATASET_TRAIN = functools.reduce(lambda __l, __r: __l.concatenate(__r), [DATASETS[__n]['train'] for __n in (set(DATASETS.keys()) - {'ft-retro-ascii-art'})]) # - {'pt-wikipedia'}
-DATASET_TEST = functools.reduce(lambda __l, __r: __l.concatenate(__r), [DATASETS[__n]['test'] for __n in (set(DATASETS.keys()) - {'ft-retro-ascii-art'})]) # - {'pt-wikipedia'}
+DATASET_TRAIN = functools.reduce(lambda __l, __r: __l.concatenate(__r), [DATASETS[__n][__i] for __n in (set(DATASETS.keys()) - {'ft-retro-ascii-art'}) for __i in range(len(DATASETS[__n]) - 1)]) # - {'pt-wikipedia'}
+DATASET_TEST = functools.reduce(lambda __l, __r: __l.concatenate(__r), [DATASETS[__n][-1] for __n in (set(DATASETS.keys()) - {'ft-retro-ascii-art'})]) # - {'pt-wikipedia'}
 
 # CHECK DATASET ###############################################################
 
@@ -222,11 +216,11 @@ if TRAINING:
         tb_callback = tf.keras.callbacks.TensorBoard(log_dir=LLAMINATE_LOGS_PATH)
         # model fitting
         TRAINING_HISTORY = LLAMINATE.fit(
-            x=DATASETS['ft-stack-exchange']['train'].prefetch(1),
+            x=DATASETS['ft-stack-exchange'][0].prefetch(tf.data.AUTOTUNE),
             batch_size=None,
             epochs=N_EPOCHS,
             validation_split=None,
-            validation_data=DATASETS['ft-stack-exchange']['test'].prefetch(1),
+            validation_data=DATASETS['ft-stack-exchange'][-1].prefetch(tf.data.AUTOTUNE),
             validation_freq=list(range(1, N_EPOCHS + 1, 1)),
             class_weight=CLASS_WEIGHTS,
             verbose=1,
