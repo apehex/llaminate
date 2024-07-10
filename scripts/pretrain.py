@@ -162,8 +162,8 @@ for __name in DATASETS:
     # specialized preprocessing fn
     __preprocess = functools.partial(llaminate.pipeline.preprocess, batch_dim=N_BATCH_DIM, token_dim=math.prod(TOKUN_DIM), embed_dim=N_EMBED_DIM, sample_dim=N_SAMPLE_DIM, features=DATASETS_META[__name]['features'])
     # apply
-    DATASETS[__name]['train'] = DATASETS[__name]['train'].batch(N_BATCH_DIM).map(__preprocess, num_parallel_calls=tf.data.AUTOTUNE)
-    DATASETS[__name]['test'] = DATASETS[__name]['test'].batch(N_BATCH_DIM).map(__preprocess, num_parallel_calls=tf.data.AUTOTUNE)
+    DATASETS[__name]['train'] = DATASETS[__name]['train'].batch(N_BATCH_DIM, drop_remainder=True, num_parallel_calls=tf.data.AUTOTUNE).map(__preprocess, num_parallel_calls=tf.data.AUTOTUNE)
+    DATASETS[__name]['test'] = DATASETS[__name]['test'].batch(N_BATCH_DIM, drop_remainder=True, num_parallel_calls=tf.data.AUTOTUNE).map(__preprocess, num_parallel_calls=tf.data.AUTOTUNE)
 
 # CONCATENATE #################################################################
 
@@ -211,7 +211,7 @@ with DISTRIBUTION_STRATEGY.scope():
     LLAMINATE.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=R_0, beta_1=B_1, beta_2=B_2),
         loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False, label_smoothing=0., axis=-1, reduction=tf.keras.losses.Reduction.SUM_OVER_BATCH_SIZE, name='cce_loss'),
-        metrics=[byte_accuracy, character_accuracy, token_accuracy])
+        weighted_metrics=[byte_accuracy, character_accuracy, token_accuracy])
 
 # TRAIN #######################################################################
 
