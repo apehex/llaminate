@@ -150,7 +150,9 @@ for __name in DATASETS:
         token_dim=math.prod(TOKUN_DIM),
         embed_dim=N_EMBED_DIM,
         sample_dim=N_SAMPLE_DIM,
-        features=DATASETS_META[__name]['features'])
+        features=DATASETS_META[__name]['features'],
+        padding_weight=0.01,
+        weight_samples=True)
     # apply
     for __idx in range(len(DATASETS[__name])):
         DATASETS[__name][__idx] = DATASETS[__name][__idx].batch(
