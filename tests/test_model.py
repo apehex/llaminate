@@ -23,7 +23,8 @@ class CacheTransformerTest(tf.test.TestCase):
                 'sequence_axis': 1,
                 'feature_axis': -1,
                 'token_dim': [4, 4],
-                'encoding_dim': 256,
+                'input_dim': 256,
+                'output_dim': 256,
                 'embedding_dim': 256,},
             'llaminate': {
                 'num_layers': 2,
@@ -64,7 +65,8 @@ class TransformerTest(tf.test.TestCase):
                 'sequence_axis': 1,
                 'feature_axis': -1,
                 'token_dim': [4, 4],
-                'encoding_dim': 256,
+                'input_dim': 256,
+                'output_dim': 256,
                 'embedding_dim': 256,},
             'llaminate': {
                 'num_layers': 2,
