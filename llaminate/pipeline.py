@@ -21,10 +21,12 @@ def preprocess(inputs: tf.Tensor, token_dim: int, output_dim: int, batch_dim: in
     __inputs, __targets = (__reshape(__inputs), __reshape(__targets))
     # binary encoding for the target classes
     if binary:
-        __inputs, __targets = __inputs, tokun.pipeline.binarize(data=__targets, depth=output_dim, dtype=tf.dtypes.float32)
+        __inputs, __targets = __inputs, mlable.ops.expand_base(data=__targets, base=2, depth=output_dim)
     # one-hot encoding for the target classes => (B, 4 * S, E) int (bool)
     else:
         __inputs, __targets = __inputs, tf.one_hot(__targets, depth=output_dim, axis=-1)
+    # cast
+    __inputs, __targets = tf.cast(__inputs, dtype=tf.dtypes.int32), tf.cast(__targets, dtype=tf.dtypes.float32)
     # sequence mask to ignore padding during training
     __weights = tf.not_equal(__inputs, 0) # byte level mask
     __weights = mlable.ops.reduce_any(data=__weights, group=4, axis=-1, keepdims=True) # character level mask, but expressed byte by byte

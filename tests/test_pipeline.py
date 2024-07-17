@@ -3,7 +3,7 @@ import functools
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-import tokun.pipeline
+import mlable.sampling
 import llaminate.pipeline
 
 # ROPE ########################################################################
@@ -41,7 +41,7 @@ class PreprocessTest(tf.test.TestCase):
         for _ in range(16):
             __x, __y, __m = next(__batch)
             __x = tf.cast(__x, dtype=tf.dtypes.int32)
-            __y = tokun.pipeline.interpret(__y, binary=False)
+            __y = mlable.sampling.categorical(__y)
             self.assertAllEqual(__x[:, :self._config_categorical['token_dim']], tf.zeros(shape=(self._config_categorical['batch_dim'], self._config_categorical['token_dim']), dtype=tf.dtypes.int32))
             self.assertAllEqual(__x[:, self._config_categorical['token_dim']:], __y[:, :-self._config_categorical['token_dim']]) # x and y are offset by token_dim
         # binary
@@ -49,7 +49,7 @@ class PreprocessTest(tf.test.TestCase):
         for _ in range(16):
             __x, __y, __m = next(__batch)
             __x = tf.cast(__x, dtype=tf.dtypes.int32)
-            __y = tokun.pipeline.interpret(__y, binary=True)
+            __y = mlable.sampling.binary(__y)
             self.assertAllEqual(__x[:, :self._config_categorical['token_dim']], tf.zeros(shape=(self._config_categorical['batch_dim'], self._config_categorical['token_dim']), dtype=tf.dtypes.int32))
             self.assertAllEqual(__x[:, self._config_categorical['token_dim']:], __y[:, :-self._config_categorical['token_dim']]) # x and y are offset by token_dim
 
