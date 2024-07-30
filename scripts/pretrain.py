@@ -8,7 +8,7 @@ import os
 import random
 import urllib.request
 
-import datasets as ds
+import datasets as hd
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
@@ -51,42 +51,44 @@ print(DISTRIBUTION_STRATEGY)
 
 # MODE ########################################################################
 
-DEBUG = False
 IMPORT = False
-FREEZE = True # freeze tokun weights
+FREEZE = False # freeze tokun weights
 TRAINING = True
+BINARY = True
+DEBUG = False
 
 # MODEL PARAMETERS ############################################################
 
 N_SEQUENCE_AXIS = 1
 N_FEATURE_AXIS = -1
 
-N_LAYERS_NUM = 16
+N_LAYERS_NUM = 32
 N_HEADS_NUM = 4
 
-N_CACHE_DIM = 256 # 2048 in llama3-8B but tokun embeddings = 16 chr = 4 llama3 tokens
+N_INPUT_DIM = 256
+N_OUTPUT_DIM = 8
+
+N_CACHE_DIM = 4 * 256 # 2048 in llama3-8B but tokun embeddings = 16 chr = 4 llama3 tokens
 N_EMBED_DIM = 256
 N_HIDDEN_DIM = 4 * N_EMBED_DIM
 N_HEAD_DIM = N_EMBED_DIM // N_HEADS_NUM
 
-LLAMINATE_PATH = 'llaminate.keras'
-
 # TOKENIZER PARAMETERS ########################################################
 
-TOKUN_DIM = [16, 4]
+TOKUN_DIM = [4, 4]
 TOKUN_FACTOR = math.prod(TOKUN_DIM) // 4
-TOKUN_VERSION = tokun.meta.version(units=TOKUN_DIM, axis=1)
+TOKUN_VERSION = tokun.meta.version(token_units=TOKUN_DIM, sequence_axis=1, input_dim=N_INPUT_DIM, output_dim=N_OUTPUT_DIM)
 
-TOKUN_LABEL = '7.7'
+TOKUN_LABEL = '9.2'
 TOKUN_PATH = 'tokun.keras'
-TOKUN_URL = 'https://github.com/apehex/tokun/raw/main/models/{}/{}/{}.keras'.format(*TOKUN_VERSION, TOKUN_LABEL)
+TOKUN_URL = 'https://github.com/apehex/tokun/raw/main/models/{}/{}/{}/{}.keras'.format(*TOKUN_VERSION, TOKUN_LABEL)
 
 # TRAINING PARAMETERS #########################################################
 
 N_BATCH_DIM = 128
 N_SAMPLE_DIM = N_CACHE_DIM * TOKUN_FACTOR
 
-N_EPOCHS = 8
+N_EPOCHS = 2
 
 R_0, B_1, B_2 = (0.1 if IMPORT else 1.) * 0.001, 0.9, 0.99
 
@@ -132,7 +134,7 @@ DATASETS_META = {
 
 DATASETS = {
     __name: [
-        ds.load_dataset(path=__args['path'], name=__args['name'], split=__s).to_tf_dataset(shuffle=True, batch_size=None)
+        hd.load_dataset(path=__args['path'], name=__args['name'], split=__s).to_tf_dataset(shuffle=True, batch_size=None)
         for __s in __args['splits']]
     for __name, __args in DATASETS_META.items()}
 
@@ -146,13 +148,14 @@ for __name in DATASETS:
     # specialized preprocessing fn
     __preprocess = functools.partial(
         llaminate.pipeline.preprocess,
-        batch_dim=N_BATCH_DIM,
         token_dim=math.prod(TOKUN_DIM),
-        embed_dim=N_EMBED_DIM,
+        output_dim=N_OUTPUT_DIM,
+        batch_dim=N_BATCH_DIM,
         sample_dim=N_SAMPLE_DIM,
         features=DATASETS_META[__name]['features'],
         padding_weight=0.01,
-        weight_samples=True)
+        sample_weights=True,
+        binary=BINARY)
     # apply
     for __idx in range(len(DATASETS[__name])):
         DATASETS[__name][__idx] = DATASETS[__name][__idx].batch(
@@ -178,6 +181,11 @@ print('test:  {:,} samples'.format(DATASET_TEST.cardinality().numpy()))
 
 urllib.request.urlretrieve(TOKUN_URL, TOKUN_PATH)
 
+# METRICS #####################################################################
+
+_Accuracy = mlable.metrics.BinaryGroupAccuracy if BINARY else mlable.metrics.CategoricalGroupAccuracy
+_Loss = tf.keras.losses.BinaryCrossentropy if BINARY else tf.keras.losses.CategoricalCrossentropy
+
 # INIT MODEL ##################################################################
 
 with DISTRIBUTION_STRATEGY.scope():
@@ -186,18 +194,16 @@ with DISTRIBUTION_STRATEGY.scope():
     TOKUN.trainable = not FREEZE # freeze the weights
 
     # METRICS #################################################################
-    byte_accuracy = mlable.metrics.CategoricalGroupAccuracy(group=1, name='byte_accuracy')
-    character_accuracy = mlable.metrics.CategoricalGroupAccuracy(group=4, name='character_accuracy')
-    token_accuracy = mlable.metrics.CategoricalGroupAccuracy(group=math.prod(TOKUN_DIM), name='token_accuracy')
+    byte_accuracy = _Accuracy(group=1, name='byte_accuracy')
+    character_accuracy = _Accuracy(group=4, name='character_accuracy')
+    token_accuracy = _Accuracy(group=math.prod(TOKUN_DIM), name='token_accuracy')
 
     # WEIGHTS #################################################################
     if IMPORT and os.path.isfile(LLAMINATE_MODEL_PATH):
         LLAMINATE = tf.keras.models.load_model(LLAMINATE_MODEL_PATH, compile=False)
     else:
         LLAMINATE = llaminate.model.Transformer(num_layers=N_LAYERS_NUM, num_heads=N_HEADS_NUM, cache_dim=N_CACHE_DIM, embed_dim=N_EMBED_DIM, head_dim=N_HEAD_DIM, hidden_dim=N_HIDDEN_DIM)
-
-    # INIT ####################################################################
-    LLAMINATE.set_tokenizer(encoder=TOKUN._encoder, decoder=TOKUN._decoder)
+        LLAMINATE.set_tokenizer(encoder=TOKUN._encoder, decoder=TOKUN._decoder)
 
     # INPUT ###################################################################
     # __input = tf.keras.Input(shape=(4 * TOKUN_FACTOR * N_CACHE_DIM,), batch_size=N_BATCH_DIM)
@@ -206,7 +212,7 @@ with DISTRIBUTION_STRATEGY.scope():
     # COMPILE #################################################################
     LLAMINATE.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=R_0, beta_1=B_1, beta_2=B_2),
-        loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False, label_smoothing=0., axis=-1, reduction='sum_over_batch_size', name='cce_loss'),
+        loss=_Loss(from_logits=False, label_smoothing=0., axis=-1, reduction='sum_over_batch_size', name='cce_loss'),
         weighted_metrics=[byte_accuracy, character_accuracy, token_accuracy])
 
 # TRAIN #######################################################################
@@ -216,14 +222,19 @@ if TRAINING:
         # callbacks
         cp_callback = tf.keras.callbacks.ModelCheckpoint(LLAMINATE_MODEL_PATH, monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=False, mode='auto', save_freq='epoch')
         tb_callback = tf.keras.callbacks.TensorBoard(log_dir=LLAMINATE_LOGS_PATH, histogram_freq=1, embeddings_freq=0, profile_batch=(16, 32), write_graph=False, write_images=True)
-        # model fitting
-        TRAINING_HISTORY = LLAMINATE.fit(
-            x=DATASETS['ft-stack-exchange'][0].prefetch(tf.data.AUTOTUNE),
-            batch_size=None,
-            epochs=N_EPOCHS,
-            validation_split=None,
-            validation_data=DATASETS['ft-stack-exchange'][-1].prefetch(tf.data.AUTOTUNE),
-            validation_freq=list(range(1, N_EPOCHS + 1, 1)),
-            class_weight=CLASS_WEIGHTS,
-            verbose=1,
-            callbacks=[cp_callback, tb_callback])
+        # datasets
+        ds_splits = DATASETS['pt-wikipedia']
+        ds_test = ds_splits[-1].take(128).prefetch(tf.data.AUTOTUNE)
+        # loop on each split
+        for __split in ds_splits[:-1]:
+            # model fitting
+            TRAINING_HISTORY = LLAMINATE.fit(
+                x=__split,
+                batch_size=None,
+                epochs=N_EPOCHS,
+                validation_split=None,
+                validation_data=ds_test,
+                validation_freq=list(range(1, N_EPOCHS + 1, 1)),
+                class_weight=CLASS_WEIGHTS,
+                verbose=1,
+                callbacks=[cp_callback, tb_callback])
