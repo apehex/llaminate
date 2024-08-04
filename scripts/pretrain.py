@@ -66,7 +66,7 @@ N_LAYERS_NUM = 32
 N_HEADS_NUM = 4
 
 N_INPUT_DIM = 256
-N_OUTPUT_DIM = 8
+N_OUTPUT_DIM = 8 if BINARY else 256
 
 N_CACHE_DIM = 4 * 256 # 2048 in llama3-8B but tokun embeddings = 16 chr = 4 llama3 tokens
 N_EMBED_DIM = 256
