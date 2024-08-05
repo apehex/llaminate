@@ -111,7 +111,17 @@ DATASETS_META = {
     'pt-wikipedia': {
         'path': 'wikimedia/wikipedia',
         'name': '20231101.en',
-        'splits': [f'train[{__p}%:{__p + 10}%]' for __p in range(0, 100, 10)],
+        'splits': [f'train[{__p}%:{__p + 9}%]' for __p in range(0, 80, 8)],
+        'features': ['text'],},
+    'tp-wikipedia-1': {
+        'path': 'wikimedia/wikipedia',
+        'name': '20231101.en',
+        'splits': [f'train[{__p}%:{__p + 1}%]' for __p in range(80, 90, 1)],
+        'features': ['text'],},
+    'tp-wikipedia-2': {
+        'path': 'wikimedia/wikipedia',
+        'name': '20231101.en',
+        'splits': [f'train[{__p}%:{__p + 1}%]' for __p in range(90, 100, 1)],
         'features': ['text'],},
     'ft-retro-ascii-art': {
         'path': 'jdpressman/retro-ascii-art-v1',
@@ -223,17 +233,17 @@ if TRAINING:
         cp_callback = tf.keras.callbacks.ModelCheckpoint(LLAMINATE_MODEL_PATH, monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=False, mode='auto', save_freq='epoch')
         tb_callback = tf.keras.callbacks.TensorBoard(log_dir=LLAMINATE_LOGS_PATH, histogram_freq=1, embeddings_freq=0, profile_batch=(16, 32), write_graph=False, write_images=True)
         # datasets
-        ds_splits = DATASETS['pt-wikipedia']
-        ds_test = ds_splits[-1].take(128).prefetch(tf.data.AUTOTUNE)
+        ds_splits = DATASETS['tp-wikipedia-1']
+        ds_test = DATASETS['tp-wikipedia-2'][0]
         # loop on each split
-        for __split in ds_splits[:-1]:
+        for __split in ds_splits:
             # model fitting
             TRAINING_HISTORY = LLAMINATE.fit(
-                x=__split,
+                x=__split.prefetch(tf.data.AUTOTUNE),
                 batch_size=None,
                 epochs=N_EPOCHS,
                 validation_split=None,
-                validation_data=ds_test,
+                validation_data=ds_test.prefetch(tf.data.AUTOTUNE),
                 validation_freq=list(range(1, N_EPOCHS + 1, 1)),
                 class_weight=CLASS_WEIGHTS,
                 verbose=1,
