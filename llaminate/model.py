@@ -137,7 +137,7 @@ class Transformer(tf.keras.models.Model):
                 epsilon=epsilon,
                 name='block-{}'.format(__i))
             for __i in range(num_layers)]
-        self._norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True, 
+        self._norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True,
         self._decoder = None
 
     def call(self, inputs: tf.Tensor, attention_mask: tf.Tensor=None, **kwargs) -> tf.Tensor:

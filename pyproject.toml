@@ -7,7 +7,7 @@ readme = ".github/README.md"
 packages = [{include = "llaminate"}]
 
 [tool.poetry.dependencies]
-python = ">=3.10, <3.12"
+python = ">=3.10, <3.13"
 tensorflow = ">=2.15"
 tensorflow-datasets = ">=4.9"
 mlable = {path = "../mlable/", develop = true} # mlable = ">=0.7"

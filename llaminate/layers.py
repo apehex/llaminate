@@ -3,8 +3,7 @@
 import keras
 import tensorflow as tf
 
-import mlable.layers.embedding
-import mlable.layers.transformer
+import mlable.blocks.transformer
 
 # CONSTANTS ###################################################################
 
@@ -34,36 +33,23 @@ class CacheDecoderBlock(tf.keras.layers.Layer):
             'hidden_dim': hidden_dim,
             'epsilon': epsilon,}
         # layers
-        self._attention_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True, 
-        self._position = mlable.layers.embedding.RotaryPositionalEmbedding(sequence_axis=1, feature_axis=-1)
-        self._attention = mlable.layers.transformer.CachedMultiHeadAttention(num_heads=num_heads, key_dim=head_dim, value_dim=head_dim, attention_axes=[sequence_axis], use_bias=False, kernel_initializer='glorot_uniform')
-        self._ffn_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True, 
-        self._ffn = mlable.layers.transformer.FeedForwardGate(input_dim=embed_dim, hidden_dim=hidden_dim)
+        self._attention = mlable.blocks.transformer.CachedSelfAttentionBlock(num_heads=num_heads, head_dim=head_dim, sequence_axis=sequence_axis, epsilon=epsilon, center=False, scale=False)
+        self._ffn = mlable.blocks.transformer.FeedForwardBlock(embed_dim=embed_dim, hidden_dim=hidden_dim, epsilon=epsilon, center=False, scale=False)
 
     def call(
         self,
         inputs: tf.Tensor,
         cache: tf.Tensor=None,
-        attention_mask: tf.Tensor=None,
         position: int=0,
+        attention_mask: tf.Tensor=None,
         training: bool=False,
     ) -> tf.Tensor:
-        # residual
-        __x = inputs
-        # normalize
-        __y = self._attention_norm(__x)
-        # position embedding
-        __yp = self._position(inputs=__y, offset=position)
-        # attention
-        __y, __cache = self._attention(key=__yp, query=__yp, value=__y, cache=cache, step=position, training=training, attention_mask=attention_mask, use_causal_mask=True, return_attention_scores=False)
-        # residual
-        __x = __y + __x
-        # normalize
-        __y = self._ffn_norm(__x)
-        # augment
-        __y = self._ffn(__y)
-        # residual
-        return __y + __x, __cache
+        # self attention
+        __x, __cache = self._attention(inputs=inputs, cache=cache, position=position, attention_mask=attention_mask, training=training, use_causal_mask=True)
+        # residual + augmentation
+        __x = inputs + __x + self._ffn(inputs + __x)
+        # return values and cache
+        return __x, __cache
 
     def get_config(self) -> dict:
         __config = super(CacheDecoderBlock, self).get_config()
@@ -98,11 +84,8 @@ class DecoderBlock(tf.keras.layers.Layer):
             'hidden_dim': hidden_dim,
             'epsilon': epsilon,}
         # layers
-        self._attention_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True, 
-        self._position = mlable.layers.embedding.RotaryPositionalEmbedding(sequence_axis=1, feature_axis=-1)
-        self._attention = tf.keras.layers.MultiHeadAttention(num_heads=num_heads, key_dim=head_dim, value_dim=head_dim, attention_axes=[sequence_axis], use_bias=False, kernel_initializer='glorot_uniform')
-        self._ffn_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=epsilon, beta_initializer='zeros', gamma_initializer='ones') # rms_scaling=True, 
-        self._ffn = mlable.layers.transformer.FeedForwardGate(input_dim=embed_dim, hidden_dim=hidden_dim)
+        self._attention = mlable.blocks.transformer.SelfAttentionBlock(num_heads=num_heads, head_dim=head_dim, sequence_axis=sequence_axis, epsilon=epsilon, center=False, scale=False)
+        self._ffn = mlable.blocks.transformer.FeedForwardBlock(embed_dim=embed_dim, hidden_dim=hidden_dim, epsilon=epsilon, center=False, scale=False)
 
     def call(
         self,
@@ -110,22 +93,10 @@ class DecoderBlock(tf.keras.layers.Layer):
         attention_mask: tf.Tensor=None,
         training: bool=False,
     ) -> tf.Tensor:
-        # residual
-        __x = inputs
-        # normalize
-        __y = self._attention_norm(__x)
-        # position embedding
-        __yp = self._position(inputs=__y, offset=0)
-        # attention
-        __y = self._attention(key=__yp, query=__yp, value=__y, training=training, attention_mask=attention_mask, use_causal_mask=True, return_attention_scores=False)
-        # residual
-        __x = __y + __x
-        # normalize
-        __y = self._ffn_norm(__x)
-        # augment
-        __y = self._ffn(__y)
-        # residual
-        return __y + __x
+        # residual + self attention
+        __x = inputs + self._attention(inputs=inputs, attention_mask=attention_mask, training=training, use_causal_mask=True)
+        # residual + augmentation
+        return __x + self._ffn(__x)
 
     def get_config(self) -> dict:
         __config = super(DecoderBlock, self).get_config()
