@@ -10,66 +10,166 @@ import llaminate.utils
 # WITH CACHE ##################################################################
 
 class CacheTransformerTest(tf.test.TestCase):
+    def setUp(self):
+        self._config_cache = {
+            'num_layers': 2,
+            'num_heads': 4,
+            'batch_dim': 8,
+            'cache_dim': 16,
+            'head_dim': 64,}
+        self._config_encoder = {
+            'batch_dim': 8,
+            'sample_dim': 16,
+            'token_dim': 128}
+        self._config_model = {
+            'num_layers': 2,
+            'num_heads': 4,
+            'embed_dim': 256,
+            'head_dim': 64,
+            'hidden_dim': 1024,
+            'output_dim': 128,
+            'epsilon': 1e-6,}
+        # init transformer
+        self._model = llaminate.model.CacheTransformer(**self._config_model)
+        # init cache
+        self._cache = llaminate.utils.create_cache(**self._config_cache)
+        __x = tf.zeros((self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']))
+        self._model(__x)
 
     def test_shapes(self):
-        __meta = {
-            'cache': {
-                'num_layers': 2,
-                'num_heads': 4,
-                'batch_dim': 8,
-                'cache_dim': 16,
-                'head_dim': 64,},
-            'encoder': {
-                'sample_dim': 16,
-                'token_dim': 128},
-            'llaminate': {
-                'num_layers': 2,
-                'num_heads': 4,
-                'embed_dim': 256,
-                'head_dim': 64,
-                'hidden_dim': 1024,
-                'output_dim': 128,
-                'epsilon': 1e-6,},}
-        # cache
-        __c = llaminate.utils.create_cache(**__meta['cache'])
-        # transformer
-        __m = llaminate.model.CacheTransformer(**__meta['llaminate'])
         # inputs
-        __x = tf.ones((__meta['cache']['batch_dim'], __meta['encoder']['sample_dim'], __meta['encoder']['token_dim']))
+        __x = tf.ones((self._config_cache['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']))
         # call
-        __y = __m.call(inputs=__x, training=False)
+        __y = self._model.call(inputs=__x, training=False)
         # checks
         self.assertEqual(__y.shape, __x.shape)
         # infer
-        __y, __c = __m.infer(inputs=__x, cache=__c, attention_mask=None, position=4, training=False)
+        __y, self._cache = self._model.infer(inputs=__x, cache=self._cache, attention_mask=None, position=4, training=False)
         # checks
         self.assertEqual(__y.shape, __x.shape)
-        self.assertEqual(len(__c), __meta['llaminate']['num_layers'])
-        self.assertEqual(__c[0].shape, (2, __meta['cache']['batch_dim'], __meta['cache']['cache_dim'], __meta['cache']['num_heads'], __meta['cache']['head_dim']))
+        self.assertEqual(len(self._cache), self._config_model['num_layers'])
+        self.assertEqual(self._cache[0].shape, (2, self._config_cache['batch_dim'], self._config_cache['cache_dim'], self._config_cache['num_heads'], self._config_cache['head_dim']))
+
+    def test_internals(self):
+        # tail
+        assert list(self._model._tail.kernel.shape) == [self._config_encoder['token_dim'], self._config_model['embed_dim']]
+        assert list(self._model._tail.bias.shape) == [self._config_model['embed_dim']]
+        # blocks
+        assert len(self._model._blocks) == self._config_model['num_layers']
+        # self attention
+        assert all(bool(__b._attention._input_norm) for __b in self._model._blocks)
+        assert all(bool(__b._attention._context_norm) for __b in self._model._blocks)
+        assert all(bool(__b._attention._position) for __b in self._model._blocks)
+        assert all(list(__b._attention._attention._key_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
+        assert all(list(__b._attention._attention._query_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
+        assert all(list(__b._attention._attention._value_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
+        # ffn
+        assert all(bool(__b._ffn._norm) for __b in self._model._blocks)
+        assert all(list(__b._ffn._ffn._gelu.kernel.shape) == [self._config_model['embed_dim'], self._config_model['hidden_dim']] for __b in self._model._blocks)
+        assert all(list(__b._ffn._ffn._linear.kernel.shape) == [self._config_model['embed_dim'], self._config_model['hidden_dim']] for __b in self._model._blocks)
+        assert all(list(__b._ffn._ffn._output.kernel.shape) == [self._config_model['hidden_dim'], self._config_model['embed_dim']] for __b in self._model._blocks)
+        # head
+        assert list(self._model._head.kernel.shape) == [self._config_model['embed_dim'], self._config_model['output_dim']]
+        assert list(self._model._head.bias.shape) == [self._config_model['output_dim']]
+
+    def test_null_values(self):
+        # tail
+        __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']], dtype=tf.float32)
+        self.assertAllEqual(self._model._tail(__x), 0.5 * tf.ones([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32))
+        # self attention
+        __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32)
+        self.assertAllEqual(self._model._blocks[0]._attention(__x)[0], tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32))
+        # ffn
+        __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32)
+        self.assertAllEqual(self._model._blocks[0]._ffn(__x), tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32))
+        # head
+        __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32)
+        self.assertAllEqual(self._model._head(__x), 0.5 * tf.ones([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['output_dim']], dtype=tf.float32))
 
 # WITH CACHE ##################################################################
 
 class TransformerTest(tf.test.TestCase):
+    def setUp(self):
+        self._config_encoder = {
+            'batch_dim': 2,
+            'sample_dim': 16,
+            'token_dim': 128}
+        self._config_model = {
+            'num_layers': 2,
+            'num_heads': 4,
+            'embed_dim': 256,
+            'head_dim': 64,
+            'hidden_dim': 1024,
+            'output_dim': 128,
+            'epsilon': 1e-6,}
+        # init transformer
+        self._model = llaminate.model.Transformer(**self._config_model)
+        # build
+        __x = tf.zeros((self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']))
+        self._model(__x)
+
+    def test_internals(self):
+        # tail
+        assert list(self._model._tail.kernel.shape) == [self._config_encoder['token_dim'], self._config_model['embed_dim']]
+        assert list(self._model._tail.bias.shape) == [self._config_model['embed_dim']]
+        # blocks
+        assert len(self._model._blocks) == self._config_model['num_layers']
+        # self attention
+        assert all(bool(__b._attention._input_norm) for __b in self._model._blocks)
+        assert all(bool(__b._attention._context_norm) for __b in self._model._blocks)
+        assert all(bool(__b._attention._position) for __b in self._model._blocks)
+        assert all(list(__b._attention._attention._key_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
+        assert all(list(__b._attention._attention._query_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
+        assert all(list(__b._attention._attention._value_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
+        # ffn
+        assert all(bool(__b._ffn._norm) for __b in self._model._blocks)
+        assert all(list(__b._ffn._ffn._gelu.kernel.shape) == [self._config_model['embed_dim'], self._config_model['hidden_dim']] for __b in self._model._blocks)
+        assert all(list(__b._ffn._ffn._linear.kernel.shape) == [self._config_model['embed_dim'], self._config_model['hidden_dim']] for __b in self._model._blocks)
+        assert all(list(__b._ffn._ffn._output.kernel.shape) == [self._config_model['hidden_dim'], self._config_model['embed_dim']] for __b in self._model._blocks)
+        # head
+        assert list(self._model._head.kernel.shape) == [self._config_model['embed_dim'], self._config_model['output_dim']]
+        assert list(self._model._head.bias.shape) == [self._config_model['output_dim']]
 
     def test_shapes(self):
-        __meta = {
-            'encoder': {
-                'batch_dim': 2,
-                'sample_dim': 8,
-                'token_dim': 128},
-            'llaminate': {
-                'num_layers': 2,
-                'num_heads': 4,
-                'embed_dim': 256,
-                'head_dim': 64,
-                'hidden_dim': 1024,
-                'output_dim': 128,
-                'epsilon': 1e-6,},}
-        # transformer
-        __m = llaminate.model.Transformer(**__meta['llaminate'])
         # inputs
-        __x = tf.ones((__meta['encoder']['batch_dim'], __meta['encoder']['sample_dim'], __meta['encoder']['token_dim']))
+        __x = tf.ones((self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']))
         # call
-        __y = __m.call(inputs=__x, attention_mask=None, training=False)
+        __y = self._model.call(inputs=__x, attention_mask=None, training=False)
         # checks
         self.assertEqual(__y.shape, __x.shape)
+
+    def test_internals(self):
+        # tail
+        assert list(self._model._tail.kernel.shape) == [self._config_encoder['token_dim'], self._config_model['embed_dim']]
+        assert list(self._model._tail.bias.shape) == [self._config_model['embed_dim']]
+        # blocks
+        assert len(self._model._blocks) == self._config_model['num_layers']
+        # self attention
+        assert all(bool(__b._attention._input_norm) for __b in self._model._blocks)
+        assert all(bool(__b._attention._context_norm) for __b in self._model._blocks)
+        assert all(bool(__b._attention._position) for __b in self._model._blocks)
+        assert all(list(__b._attention._attention._key_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
+        assert all(list(__b._attention._attention._query_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
+        assert all(list(__b._attention._attention._value_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
+        # ffn
+        assert all(bool(__b._ffn._norm) for __b in self._model._blocks)
+        assert all(list(__b._ffn._ffn._gelu.kernel.shape) == [self._config_model['embed_dim'], self._config_model['hidden_dim']] for __b in self._model._blocks)
+        assert all(list(__b._ffn._ffn._linear.kernel.shape) == [self._config_model['embed_dim'], self._config_model['hidden_dim']] for __b in self._model._blocks)
+        assert all(list(__b._ffn._ffn._output.kernel.shape) == [self._config_model['hidden_dim'], self._config_model['embed_dim']] for __b in self._model._blocks)
+        # head
+        assert list(self._model._head.kernel.shape) == [self._config_model['embed_dim'], self._config_model['output_dim']]
+        assert list(self._model._head.bias.shape) == [self._config_model['output_dim']]
+
+    def test_null_values(self):
+        # tail
+        __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']], dtype=tf.float32)
+        self.assertAllEqual(self._model._tail(__x), 0.5 * tf.ones([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32))
+        # self attention
+        __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32)
+        self.assertAllEqual(self._model._blocks[0]._attention(__x), tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32))
+        # ffn
+        __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32)
+        self.assertAllEqual(self._model._blocks[0]._ffn(__x), tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32))
+        # head
+        __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32)
+        self.assertAllEqual(self._model._head(__x), 0.5 * tf.ones([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['output_dim']], dtype=tf.float32))
