@@ -51,9 +51,9 @@ def _formatter_factory(batch_dim: int, sample_dim: int, output_dtype: tf.dtypes.
     # customized fn
     return __formatter
 
-def _embedder_factory(token_dim: int) -> callable:
+def _embedder_factory(token_dim: int, input_dim: int) -> callable:
     # 32 bits codepoints <= 0X40000 (first 3 Unicode planes)
-    __embed = tokun.model.TokunEncoder(token_dim=token_dim, input_dim=0x40000, sequence_axis=1, feature_axis=-1)
+    __embed = tokun.model.TokunEncoder(token_dim=token_dim, input_dim=input_dim, sequence_axis=1, feature_axis=-1)
     # embed all
     def __embedder(inputs: tf.Tensor, targets: tf.Tensor) -> tuple:
         return (__embed(inputs), __embed(targets))
@@ -82,11 +82,11 @@ def _preprocess(inputs: tf.Tensor, parser: callable, encoder: callable, embedder
     # pack both sourcecode and bytecode into the model inputs
     return (__inputs, __targets, __weights)
 
-def preprocess_factory(batch_dim: int, sample_dim: int, token_dim: int, features: list, separator: str='\x1d', data_weight: float=1.0, padding_weight: float=0.0, output_dtype: tf.dtypes.DType=tf.int32) -> callable:
+def preprocess_factory(batch_dim: int, sample_dim: int, token_dim: int, input_dim: int, features: list, separator: str='\x1d', data_weight: float=1.0, padding_weight: float=0.0, output_dtype: tf.dtypes.DType=tf.int32) -> callable:
     # custom fn
     __parser = _parser_factory(token_dim=token_dim, features=features, separator=separator)
     __encoder = _encoder_factory(sample_dim=sample_dim, token_dim=token_dim, output_dtype=output_dtype)
-    __embedder = _embedder_factory(token_dim=token_dim)
+    __embedder = _embedder_factory(token_dim=token_dim, input_dim=input_dim)
     __formatter = _formatter_factory(batch_dim=batch_dim, sample_dim=sample_dim, output_dtype=output_dtype)
     __masker = _masker_factory(data_weight=data_weight, padding_weight=padding_weight)
     # actual preprocessing function
