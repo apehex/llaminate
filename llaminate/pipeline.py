@@ -107,3 +107,20 @@ def preprocess_factory(batch_dim: int, sample_dim: int, token_dim: int, input_di
     __masker = _masker_factory(data_weight=data_weight, padding_weight=padding_weight)
     # actual preprocessing function
     return functools.partial(_preprocess, parser=__parser, encoder=__encoder, embedder=__embedder, masker=__masker, formatter=__formatter)
+
+# < ###########################################################################
+
+def postprocess(prediction: tf.Tensor, token_dim: int, input_dim: int=0x40000, binary: bool=True, random: bool=False) -> tf.Tensor:
+    if binary: # values encoded as binary arrays
+        __depth = int(math.log(input_dim, 2))
+        __output = mlable.ops.divide(prediction, input_axis=-2, output_axis=-1, factor=__depth, insert=True)
+        __output = mlable.sampling.binary(prediction=__output, threshold=0.5, random=random)
+    else: # values without encoding
+        __output = mlable.sampling.raw(prediction, factor=input_dim, dtype=tf.int32)
+    # merge the token and sequence axes
+    __output = mlable.ops.merge(__output, left_axis=-2, right_axis=-1, left=True)
+    # merge the bytes into codepoints
+    if input_dim == 256:
+        __output = codepoint(data=__output)
+    # decode the UTF-32-BE codepoints
+    return tokun.pipeline.decode(data=__output)
