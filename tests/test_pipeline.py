@@ -6,12 +6,12 @@ import tensorflow_datasets as tfds
 import mlable.sampling
 import llaminate.pipeline
 
-# ROPE ########################################################################
+# RAW CODEPOINTS ##############################################################
 
-class PreprocessTest(tf.test.TestCase):
+class PreprocessRawCodepointsTest(tf.test.TestCase):
     def setUp(self):
-        super(PreprocessTest, self).setUp()
-        self._config = {'batch_dim': 8, 'sample_dim': 256, 'token_dim': 16, 'data_weight': 1.0, 'padding_weight': 0.0, 'output_dtype': tf.int32, 'features': ['question'], 'separator': '\x1d',} # 'binary': False
+        super(PreprocessRawCodepointsTest, self).setUp()
+        self._config = {'batch_dim': 8, 'sample_dim': 256, 'token_dim': 16, 'input_dim': 0X40000, 'data_weight': 1.0, 'padding_weight': 0.0, 'output_dtype': tf.int32, 'features': ['question'], 'separator': '\x1d', 'binary': False,}
         self._preprocess = llaminate.pipeline.preprocess_factory(**self._config)
         self._dataset_before = tfds.load('mlqa/en', split='test', as_supervised=False, shuffle_files=True, data_dir='~/.cache/tensorflow/', batch_size=None)
         self._dataset_after = self._dataset_before.batch(self._config['batch_dim'], drop_remainder=True).map(self._preprocess)

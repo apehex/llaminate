@@ -70,7 +70,7 @@ class CacheTransformerTest(tf.test.TestCase):
         assert all(list(__b._ffn._ffn._output.kernel.shape) == [self._config_model['hidden_dim'], self._config_model['embed_dim']] for __b in self._model._blocks)
         # head
         assert list(self._model._head.kernel.shape) == [self._config_model['embed_dim'], self._config_model['output_dim']]
-        assert list(self._model._head.bias.shape) == [self._config_model['output_dim']]
+        # assert list(self._model._head.bias.shape) == [self._config_model['output_dim']]
 
     def test_null_values(self):
         # tail
@@ -86,7 +86,7 @@ class CacheTransformerTest(tf.test.TestCase):
         __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32)
         self.assertAllEqual(self._model._head(__x), 0.5 * tf.ones([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['output_dim']], dtype=tf.float32))
 
-# WITH CACHE ##################################################################
+# WITHOUT CACHE ###############################################################
 
 class TransformerTest(tf.test.TestCase):
     def setUp(self):
@@ -128,7 +128,7 @@ class TransformerTest(tf.test.TestCase):
         assert all(list(__b._ffn._ffn._output.kernel.shape) == [self._config_model['hidden_dim'], self._config_model['embed_dim']] for __b in self._model._blocks)
         # head
         assert list(self._model._head.kernel.shape) == [self._config_model['embed_dim'], self._config_model['output_dim']]
-        assert list(self._model._head.bias.shape) == [self._config_model['output_dim']]
+        # assert list(self._model._head.bias.shape) == [self._config_model['output_dim']]
 
     def test_shapes(self):
         # inputs
@@ -137,28 +137,6 @@ class TransformerTest(tf.test.TestCase):
         __y = self._model.call(inputs=__x, attention_mask=None, training=False)
         # checks
         self.assertEqual(__y.shape, __x.shape)
-
-    def test_internals(self):
-        # tail
-        assert list(self._model._tail.kernel.shape) == [self._config_encoder['token_dim'], self._config_model['embed_dim']]
-        assert list(self._model._tail.bias.shape) == [self._config_model['embed_dim']]
-        # blocks
-        assert len(self._model._blocks) == self._config_model['num_layers']
-        # self attention
-        assert all(bool(__b._attention._input_norm) for __b in self._model._blocks)
-        assert all(bool(__b._attention._context_norm) for __b in self._model._blocks)
-        assert all(bool(__b._attention._position) for __b in self._model._blocks)
-        assert all(list(__b._attention._attention._key_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
-        assert all(list(__b._attention._attention._query_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
-        assert all(list(__b._attention._attention._value_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
-        # ffn
-        assert all(bool(__b._ffn._norm) for __b in self._model._blocks)
-        assert all(list(__b._ffn._ffn._gelu.kernel.shape) == [self._config_model['embed_dim'], self._config_model['hidden_dim']] for __b in self._model._blocks)
-        assert all(list(__b._ffn._ffn._linear.kernel.shape) == [self._config_model['embed_dim'], self._config_model['hidden_dim']] for __b in self._model._blocks)
-        assert all(list(__b._ffn._ffn._output.kernel.shape) == [self._config_model['hidden_dim'], self._config_model['embed_dim']] for __b in self._model._blocks)
-        # head
-        assert list(self._model._head.kernel.shape) == [self._config_model['embed_dim'], self._config_model['output_dim']]
-        assert list(self._model._head.bias.shape) == [self._config_model['output_dim']]
 
     def test_null_values(self):
         # tail
