@@ -20,12 +20,14 @@ def mask(data: tf.Tensor, padding_value: float=0.0, padding_weight: float=0.0, d
 
 # PREPROCESS ##################################################################
 
-def _parser_factory(token_dim: int, features: list, separator: str='\x1d') -> callable:
+def _parser_factory(token_dim: int, features: list, separator: str='\x1d', output_dtype: tf.dtypes.DType=tf.int32) -> callable:
+    # length of the encoding of each character (IE each character = 4 bytes = 1 codepoint in UTF-32-BE)
+    __factor = 1 if output_dtype == tf.int32 else 4
     def __parser(inputs) -> tuple:
         # fetch the relevant features
         __inputs = tf.strings.join(inputs=[inputs[__f] for __f in features], separator=separator)
         # (input, target) where target is the next token for each input
-        return (tokun.pipeline.offset(data=__inputs, ticks=token_dim), __inputs)
+        return (tokun.pipeline.offset(data=__inputs, ticks=token_dim // __factor), __inputs)
     # customized fn
     return __parser
 
@@ -39,7 +41,7 @@ def _encoder_factory(token_dim: int, sample_dim: int, output_dtype: tf.dtypes.DT
     return __encoder
 
 def _formatter_factory(batch_dim: int, sample_dim: int, output_dtype: tf.dtypes.DType=tf.int32) -> callable:
-    # character to codepoint factor
+    # length of each encoded value in bytes
     __factor = 4 if output_dtype == tf.int32 else 1
     # enforce types
     __cast = functools.partial(tf.cast, dtype=tf.float32)
