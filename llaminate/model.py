@@ -101,6 +101,7 @@ class Transformer(tf.keras.models.Model):
         hidden_dim: int,
         output_dim: int,
         epsilon: float=EPSILON,
+        activation: str='gelu',
         **kwargs
     ) -> None:
         # init
@@ -113,9 +114,10 @@ class Transformer(tf.keras.models.Model):
             'head_dim': head_dim,
             'hidden_dim': hidden_dim,
             'output_dim': output_dim,
-            'epsilon': epsilon,}
+            'epsilon': epsilon,
+            'activation': activation,}
         # layers
-        self._tail = tf.keras.layers.Dense(units=embed_dim, activation='sigmoid', use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', name='tail')
+        self._tail = tf.keras.layers.Dense(units=embed_dim, activation=activation, use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', name='tail')
         self._blocks = [
             llaminate.layers.DecoderBlock(
                 num_heads=num_heads,
