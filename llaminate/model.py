@@ -21,6 +21,8 @@ class CacheTransformer(tf.keras.models.Model):
         self,
         num_layers: int,
         num_heads: int,
+        token_dim: int,
+        input_dim: int,
         embed_dim: int,
         head_dim: int,
         hidden_dim: int,
@@ -34,13 +36,15 @@ class CacheTransformer(tf.keras.models.Model):
         self._config = {
             'num_layers': num_layers,
             'num_heads': num_heads,
+            'token_dim': token_dim,
+            'input_dim': input_dim,
             'embed_dim': embed_dim,
             'head_dim': head_dim,
             'hidden_dim': hidden_dim,
             'output_dim': output_dim,
             'epsilon': epsilon,}
         # layers
-        self._tail = tf.keras.layers.Dense(units=embed_dim, activation='sigmoid', use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', name='tail')
+        self._embed = mlable.layers.embedding.TokunEmbedding(input_dim=input_dim, output_dim=embed_dim // token_dim, name='embed')
         self._blocks = [
             llaminate.layers.CacheDecoderBlock(
                 num_heads=num_heads,
@@ -55,7 +59,7 @@ class CacheTransformer(tf.keras.models.Model):
 
     def call(self, inputs: tuple, attention_mask: tf.Tensor=None, **kwargs) -> tf.Tensor:
         # embed
-        __y = self._tail(inputs)
+        __y = self._embed(inputs)
         # blocks
         __y = functools.reduce(lambda __x, __b: __b(inputs=__x, attention_mask=attention_mask, position=0, training=True, cache=None)[0], self._blocks, __y)
         # decompress
@@ -72,7 +76,7 @@ class CacheTransformer(tf.keras.models.Model):
         # init
         __cache = self._config['num_layers'] * [None] if cache is None else cache
         # embed
-        __y = self._tail(inputs)
+        __y = self._embed(inputs)
         # blocks
         for __i, __block in enumerate(self._blocks):
             __y, __cache[__i] = __block(inputs=__y, cache=__cache[__i], attention_mask=attention_mask, position=position, training=False)
