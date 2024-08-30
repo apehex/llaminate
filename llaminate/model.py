@@ -5,6 +5,8 @@ import functools
 import keras
 import tensorflow as tf
 
+import mlable.layers.embedding
+
 import llaminate.layers
 
 # CONSTANTS ###################################################################
@@ -96,12 +98,13 @@ class Transformer(tf.keras.models.Model):
         self,
         num_layers: int,
         num_heads: int,
+        token_dim: int,
+        input_dim: int,
         embed_dim: int,
         head_dim: int,
         hidden_dim: int,
         output_dim: int,
         epsilon: float=EPSILON,
-        activation: str='gelu',
         **kwargs
     ) -> None:
         # init
@@ -110,14 +113,15 @@ class Transformer(tf.keras.models.Model):
         self._config = {
             'num_layers': num_layers,
             'num_heads': num_heads,
+            'token_dim': token_dim,
+            'input_dim': input_dim,
             'embed_dim': embed_dim,
             'head_dim': head_dim,
             'hidden_dim': hidden_dim,
             'output_dim': output_dim,
-            'epsilon': epsilon,
-            'activation': activation,}
+            'epsilon': epsilon,}
         # layers
-        self._tail = tf.keras.layers.Dense(units=embed_dim, activation=activation, use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', name='tail')
+        self._embed = mlable.layers.embedding.TokunEmbedding(input_dim=input_dim, output_dim=embed_dim // token_dim, name='embed')
         self._blocks = [
             llaminate.layers.DecoderBlock(
                 num_heads=num_heads,
@@ -132,7 +136,7 @@ class Transformer(tf.keras.models.Model):
 
     def call(self, inputs: tuple, attention_mask: tf.Tensor=None, **kwargs) -> tf.Tensor:
         # embed
-        __y = self._tail(inputs)
+        __y = self._embed(inputs)
         # blocks
         __y = functools.reduce(lambda __x, __b: __b(inputs=__x, attention_mask=attention_mask, **kwargs), self._blocks, __y)
         # decompress
