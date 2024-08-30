@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "llaminate"
-version = "0.5.7a"
+version = "0.5.8a"
 description = "Optimized version of llama3 / gemma."
 authors = ["apehex <apehex@protonmail.com>"]
 readme = ".github/README.md"

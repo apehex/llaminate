@@ -21,7 +21,7 @@ class PreprocessRawCodepointsTest(tf.test.TestCase):
         self.assertEqual(tuple(__inputs_spec.shape), (self._config['batch_dim'], (self._config['sample_dim'] // (4 * self._config['token_dim'])), self._config['token_dim']))
         self.assertEqual(tuple(__targets_spec.shape), (self._config['batch_dim'], (self._config['sample_dim'] // (4 * self._config['token_dim'])), self._config['token_dim']))
         self.assertEqual(tuple(__weights_spec.shape), (self._config['batch_dim'], (self._config['sample_dim'] // (4 * self._config['token_dim']))))
-        self.assertEqual(__inputs_spec.dtype, tf.dtypes.float32)
+        self.assertEqual(__inputs_spec.dtype, tf.dtypes.int32)
         self.assertEqual(__targets_spec.dtype, tf.dtypes.float32)
         self.assertEqual(__weights_spec.dtype, tf.dtypes.float32)
 
@@ -36,6 +36,7 @@ class PreprocessRawCodepointsTest(tf.test.TestCase):
         __batch = iter(self._dataset_after)
         for _ in range(16):
             __x, __y, __m = next(__batch)
+            __m = tf.cast(__m, tf.int32)
             assert 0 < tf.reduce_sum(__m).numpy()
             assert tf.reduce_sum(__m).numpy() < tf.size(__m).numpy()
             self.assertAllEqual(__m[:, 0], tf.zeros(shape=(self._config['batch_dim'],), dtype=tf.dtypes.float32))
@@ -56,7 +57,7 @@ class PreprocessRawBytesTest(tf.test.TestCase):
         self.assertEqual(tuple(__inputs_spec.shape), (self._config['batch_dim'], (self._config['sample_dim'] // self._config['token_dim']), self._config['token_dim']))
         self.assertEqual(tuple(__targets_spec.shape), (self._config['batch_dim'], (self._config['sample_dim'] // self._config['token_dim']), self._config['token_dim']))
         self.assertEqual(tuple(__weights_spec.shape), (self._config['batch_dim'], (self._config['sample_dim'] // self._config['token_dim'])))
-        self.assertEqual(__inputs_spec.dtype, tf.dtypes.float32)
+        self.assertEqual(__inputs_spec.dtype, tf.dtypes.int32)
         self.assertEqual(__targets_spec.dtype, tf.dtypes.float32)
         self.assertEqual(__weights_spec.dtype, tf.dtypes.float32)
 
@@ -71,6 +72,7 @@ class PreprocessRawBytesTest(tf.test.TestCase):
         __batch = iter(self._dataset_after)
         for _ in range(16):
             __x, __y, __m = next(__batch)
+            __m = tf.cast(__m, tf.int32)
             assert 0 < tf.reduce_sum(__m).numpy()
             assert tf.reduce_sum(__m).numpy() < tf.size(__m).numpy()
             self.assertAllEqual(__m[:, 0], tf.zeros(shape=(self._config['batch_dim'],), dtype=tf.dtypes.float32))
@@ -92,7 +94,7 @@ class PreprocessBinaryCodepointsTest(tf.test.TestCase):
         self.assertEqual(tuple(__inputs_spec.shape), (self._config['batch_dim'], (self._config['sample_dim'] // (4 * self._config['token_dim'])), self._config['token_dim']))
         self.assertEqual(tuple(__targets_spec.shape), (self._config['batch_dim'], (self._config['sample_dim'] // (4 * self._config['token_dim'])), self._config['token_dim'] * self._depth))
         self.assertEqual(tuple(__weights_spec.shape), (self._config['batch_dim'], (self._config['sample_dim'] // (4 * self._config['token_dim']))))
-        self.assertEqual(__inputs_spec.dtype, tf.dtypes.float32)
+        self.assertEqual(__inputs_spec.dtype, tf.dtypes.int32)
         self.assertEqual(__targets_spec.dtype, tf.dtypes.float32)
         self.assertEqual(__weights_spec.dtype, tf.dtypes.float32)
 
@@ -103,7 +105,6 @@ class PreprocessBinaryCodepointsTest(tf.test.TestCase):
             # interpret the binary encodings
             __y = mlable.ops.divide(__y, input_axis=-2, output_axis=-1, factor=self._depth, insert=True)
             __y = mlable.sampling.binary(__y, threshold=0.5)
-            __y = tf.cast(1. / self._config['input_dim'], tf.float32) * tf.cast(__y, tf.float32)
             # check
             self.assertAllEqual(__x[:, 0, :], tf.zeros(shape=(self._config['batch_dim'], self._config['token_dim']), dtype=tf.dtypes.float32))
             self.assertAllEqual(__x[:, 1:, :], __y[:, :-1, :]) # x and y are offset by token_dim
@@ -112,6 +113,7 @@ class PreprocessBinaryCodepointsTest(tf.test.TestCase):
         __batch = iter(self._dataset_after)
         for _ in range(16):
             __x, __y, __m = next(__batch)
+            __m = tf.cast(__m, tf.int32)
             assert 0 < tf.reduce_sum(__m).numpy()
             assert tf.reduce_sum(__m).numpy() < tf.size(__m).numpy()
             self.assertAllEqual(__m[:, 0], tf.zeros(shape=(self._config['batch_dim'],), dtype=tf.dtypes.float32))
@@ -133,7 +135,7 @@ class PreprocessBinaryBytesTest(tf.test.TestCase):
         self.assertEqual(tuple(__inputs_spec.shape), (self._config['batch_dim'], (self._config['sample_dim'] // self._config['token_dim']), self._config['token_dim']))
         self.assertEqual(tuple(__targets_spec.shape), (self._config['batch_dim'], (self._config['sample_dim'] // self._config['token_dim']), self._config['token_dim'] * self._depth))
         self.assertEqual(tuple(__weights_spec.shape), (self._config['batch_dim'], (self._config['sample_dim'] // self._config['token_dim'])))
-        self.assertEqual(__inputs_spec.dtype, tf.dtypes.float32)
+        self.assertEqual(__inputs_spec.dtype, tf.dtypes.int32)
         self.assertEqual(__targets_spec.dtype, tf.dtypes.float32)
         self.assertEqual(__weights_spec.dtype, tf.dtypes.float32)
 
@@ -144,7 +146,6 @@ class PreprocessBinaryBytesTest(tf.test.TestCase):
             # interpret the binary encodings
             __y = mlable.ops.divide(__y, input_axis=-2, output_axis=-1, factor=self._depth, insert=True)
             __y = mlable.sampling.binary(__y, threshold=0.5)
-            __y = tf.cast(1. / self._config['input_dim'], tf.float32) * tf.cast(__y, tf.float32)
             # check
             self.assertAllEqual(__x[:, 0, :], tf.zeros(shape=(self._config['batch_dim'], self._config['token_dim']), dtype=tf.dtypes.float32))
             self.assertAllEqual(__x[:, 1:, :], __y[:, :-1, :]) # x and y are offset by token_dim
@@ -153,6 +154,7 @@ class PreprocessBinaryBytesTest(tf.test.TestCase):
         __batch = iter(self._dataset_after)
         for _ in range(16):
             __x, __y, __m = next(__batch)
+            __m = tf.cast(__m, tf.int32)
             assert 0 < tf.reduce_sum(__m).numpy()
             assert tf.reduce_sum(__m).numpy() < tf.size(__m).numpy()
             self.assertAllEqual(__m[:, 0], tf.zeros(shape=(self._config['batch_dim'],), dtype=tf.dtypes.float32))

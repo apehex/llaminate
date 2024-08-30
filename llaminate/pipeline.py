@@ -9,7 +9,7 @@ import tokun.model
 
 # MASK ########################################################################
 
-def mask(data: tf.Tensor, padding_value: float=0.0, padding_weight: float=0.0, data_weight: float=1.0, dtype: tf.dtypes.DType=tf.float32) -> tf.Tensor:
+def mask(data: tf.Tensor, padding_value: int=0, padding_weight: float=0.0, data_weight: float=1.0, dtype: tf.dtypes.DType=tf.float32) -> tf.Tensor:
     # byte level mask
     __weights = tf.not_equal(data, padding_value)
     # instruction level mask, but expressed byte by byte
@@ -50,35 +50,32 @@ def _encoder_factory(token_dim: int, sample_dim: int, output_dtype: tf.dtypes.DT
     # customized fn
     return __encoder
 
-def _formatter_factory(batch_dim: int, sample_dim: int, output_dtype: tf.dtypes.DType=tf.int32) -> callable:
+def _formatter_factory(batch_dim: int, sample_dim: int, token_dim: int, output_dtype: tf.dtypes.DType=tf.int32) -> callable:
     # length of each encoded value in bytes
     __factor = 4 if output_dtype == tf.int32 else 1
     # enforce types
-    __cast = functools.partial(tf.cast, dtype=tf.float32)
+    __cast_i = functools.partial(tf.cast, dtype=tf.int32)
+    __cast_t = functools.partial(tf.cast, dtype=tf.float32)
     # enforce shapes
-    __reshape = functools.partial(tf.reshape, shape=(batch_dim, sample_dim // __factor))
+    __reshape = functools.partial(tf.reshape, shape=(batch_dim, sample_dim // (__factor * token_dim), token_dim))
     # chain the operations
     def __formatter(inputs: tf.Tensor, targets: tf.Tensor) -> tuple:
-        return (__cast(__reshape(inputs)), __cast(__reshape(targets)))
+        return (__cast_i(__reshape(inputs)), __cast_t(__reshape(targets)))
     # customized fn
     return __formatter
 
-def _embedder_factory(token_dim: int, input_dim: int, binary: bool=True) -> callable:
-    # 32 bits codepoints <= 0X40000 (first 3 Unicode planes)
-    __embed = tokun.model.TokunEncoder(token_dim=token_dim, input_dim=input_dim, sequence_axis=1, feature_axis=-1)
-    # split the sequence in tokens
-    __reshape = functools.partial(mlable.ops.divide, input_axis=-2, output_axis=-1, factor=token_dim, insert=True)
+def _embedder_factory(input_dim: int, binary: bool=True) -> callable:
     # decompose the codepoints in base 2
     __binarize = functools.partial(binarize, input_dim=input_dim)
     # embed all
     def __embedder(inputs: tf.Tensor, targets: tf.Tensor) -> tuple:
-        return (__embed(inputs), __binarize(__reshape(targets)) if binary else __embed(targets))
+        return (inputs, __binarize(targets) if binary else targets)
     # customized fn
     return __embedder
 
 def _masker_factory(data_weight: float=1.0, padding_weight: float=0.0) -> callable:
     def __masker(inputs: tf.Tensor) -> tf.Tensor:
-        return mask(data=inputs, padding_value=0., data_weight=data_weight, padding_weight=padding_weight, dtype=tf.float32)
+        return mask(data=inputs, padding_value=0, data_weight=data_weight, padding_weight=padding_weight, dtype=tf.float32)
     # customized fn
     return __masker
 
@@ -102,8 +99,8 @@ def preprocess_factory(batch_dim: int, sample_dim: int, token_dim: int, input_di
     # custom fn
     __parser = _parser_factory(token_dim=token_dim, features=features, separator=separator, output_dtype=output_dtype)
     __encoder = _encoder_factory(sample_dim=sample_dim, token_dim=token_dim, output_dtype=output_dtype)
-    __embedder = _embedder_factory(token_dim=token_dim, input_dim=input_dim, binary=binary)
-    __formatter = _formatter_factory(batch_dim=batch_dim, sample_dim=sample_dim, output_dtype=output_dtype)
+    __embedder = _embedder_factory(input_dim=input_dim, binary=binary)
+    __formatter = _formatter_factory(batch_dim=batch_dim, sample_dim=sample_dim, token_dim=token_dim, output_dtype=output_dtype)
     __masker = _masker_factory(data_weight=data_weight, padding_weight=padding_weight)
     # actual preprocessing function
     return functools.partial(_preprocess, parser=__parser, encoder=__encoder, embedder=__embedder, masker=__masker, formatter=__formatter)
