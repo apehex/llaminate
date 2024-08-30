@@ -21,40 +21,27 @@ class CacheTransformerTest(tf.test.TestCase):
         self._config_encoder = {
             'batch_dim': 8,
             'sample_dim': 16,
-            'token_dim': 128}
+            'token_dim': 64}
         self._config_model = {
             'num_layers': 2,
             'num_heads': 4,
+            'token_dim': 64,
+            'input_dim': 256,
             'embed_dim': 256,
             'head_dim': 64,
             'hidden_dim': 1024,
-            'output_dim': 128,
+            'output_dim': 512,
             'epsilon': 1e-6,}
         # init transformer
         self._model = llaminate.model.CacheTransformer(**self._config_model)
         # init cache
         self._cache = llaminate.utils.create_cache(**self._config_cache)
-        __x = tf.zeros((self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']))
+        __x = tf.zeros((self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']), dtype=tf.int32)
         self._model(__x)
 
-    def test_shapes(self):
-        # inputs
-        __x = tf.ones((self._config_cache['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']))
-        # call
-        __y = self._model.call(inputs=__x, training=False)
-        # checks
-        self.assertEqual(__y.shape, __x.shape)
-        # infer
-        __y, self._cache = self._model.infer(inputs=__x, cache=self._cache, attention_mask=None, position=4, training=False)
-        # checks
-        self.assertEqual(__y.shape, __x.shape)
-        self.assertEqual(len(self._cache), self._config_model['num_layers'])
-        self.assertEqual(self._cache[0].shape, (2, self._config_cache['batch_dim'], self._config_cache['cache_dim'], self._config_cache['num_heads'], self._config_cache['head_dim']))
-
     def test_internals(self):
-        # tail
-        assert list(self._model._tail.kernel.shape) == [self._config_encoder['token_dim'], self._config_model['embed_dim']]
-        assert list(self._model._tail.bias.shape) == [self._config_model['embed_dim']]
+        # embeddings
+        assert list(self._model._embed._embeddings.shape) == [self._config_model['input_dim'], self._config_model['embed_dim'] // self._config_encoder['token_dim']]
         # blocks
         assert len(self._model._blocks) == self._config_model['num_layers']
         # self attention
@@ -73,10 +60,26 @@ class CacheTransformerTest(tf.test.TestCase):
         assert list(self._model._head.kernel.shape) == [self._config_model['embed_dim'], self._config_model['output_dim']]
         # assert list(self._model._head.bias.shape) == [self._config_model['output_dim']]
 
+    def test_shapes(self):
+        # inputs
+        __x = tf.ones((self._config_cache['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']))
+        # call
+        __y = self._model.call(inputs=__x, training=False)
+        # checks
+        self.assertEqual(tuple(__y.shape), (self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['output_dim']))
+        # infer
+        __y, self._cache = self._model.infer(inputs=__x, cache=self._cache, attention_mask=None, position=4, training=False)
+        # checks
+        self.assertEqual(tuple(__y.shape), (self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['output_dim']))
+        self.assertEqual(len(self._cache), self._config_model['num_layers'])
+        self.assertEqual(self._cache[0].shape, (2, self._config_cache['batch_dim'], self._config_cache['cache_dim'], self._config_cache['num_heads'], self._config_cache['head_dim']))
+
     def test_null_values(self):
-        # tail
-        __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']], dtype=tf.float32)
-        self.assertAllEqual(self._model._tail(__x), 0.5 * tf.ones([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32))
+        # embed
+        __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']], dtype=tf.int32)
+        __y = self._model._embed(__x)
+        __z = tf.tile(__y[:, :1, :], mlable.utils.filter_shape(__y.shape, axes=[1])) # repeat first feature vector
+        self.assertAllEqual(__y , __z)
         # self attention
         __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32)
         self.assertAllEqual(self._model._blocks[0]._attention(__x)[0], tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32))
@@ -103,7 +106,7 @@ class TransformerTest(tf.test.TestCase):
             'embed_dim': 256,
             'head_dim': 64,
             'hidden_dim': 1024,
-            'output_dim': 128,
+            'output_dim': 64,
             'epsilon': 1e-6,}
         # init transformer
         self._model = llaminate.model.Transformer(**self._config_model)
@@ -141,7 +144,7 @@ class TransformerTest(tf.test.TestCase):
         self.assertEqual(tuple(__y.shape), (self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['output_dim']))
 
     def test_null_values(self):
-        # tail
+        # embed
         __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']], dtype=tf.int32)
         __y = self._model._embed(__x)
         __z = tf.tile(__y[:, :1, :], mlable.utils.filter_shape(__y.shape, axes=[1])) # repeat first feature vector
