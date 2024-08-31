@@ -21,12 +21,10 @@ class CacheTransformer(tf.keras.models.Model):
         self,
         num_layers: int,
         num_heads: int,
-        token_dim: int,
         input_dim: int,
         embed_dim: int,
         head_dim: int,
         hidden_dim: int,
-        output_dim: int,
         epsilon: float=EPSILON,
         **kwargs
     ) -> None:
@@ -36,15 +34,14 @@ class CacheTransformer(tf.keras.models.Model):
         self._config = {
             'num_layers': num_layers,
             'num_heads': num_heads,
-            'token_dim': token_dim,
             'input_dim': input_dim,
             'embed_dim': embed_dim,
             'head_dim': head_dim,
             'hidden_dim': hidden_dim,
-            'output_dim': output_dim,
             'epsilon': epsilon,}
-        # layers
-        self._embed = mlable.layers.embedding.TokunEmbedding(input_dim=input_dim, output_dim=embed_dim // token_dim, name='embed')
+        # the inputs is always UTF-32-BE bytes => 256
+        self._embed = mlable.layers.embedding.TokunEmbedding(input_dim=256, output_dim=embed_dim // input_dim, name='embed')
+        # blocks
         self._blocks = [
             llaminate.layers.CacheDecoderBlock(
                 num_heads=num_heads,
@@ -55,7 +52,8 @@ class CacheTransformer(tf.keras.models.Model):
                 epsilon=epsilon,
                 name='block-{}'.format(__i))
             for __i in range(num_layers)]
-        self._head = tf.keras.layers.Dense(units=output_dim, activation='sigmoid', use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', name='head')
+        # 8 bits for each input byte
+        self._head = tf.keras.layers.Dense(units=8 * input_dim, activation='sigmoid', use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', name='head')
 
     def call(self, inputs: tuple, attention_mask: tf.Tensor=None, **kwargs) -> tf.Tensor:
         # embed
@@ -102,12 +100,10 @@ class Transformer(tf.keras.models.Model):
         self,
         num_layers: int,
         num_heads: int,
-        token_dim: int,
         input_dim: int,
         embed_dim: int,
         head_dim: int,
         hidden_dim: int,
-        output_dim: int,
         epsilon: float=EPSILON,
         **kwargs
     ) -> None:
@@ -117,15 +113,14 @@ class Transformer(tf.keras.models.Model):
         self._config = {
             'num_layers': num_layers,
             'num_heads': num_heads,
-            'token_dim': token_dim,
             'input_dim': input_dim,
             'embed_dim': embed_dim,
             'head_dim': head_dim,
             'hidden_dim': hidden_dim,
-            'output_dim': output_dim,
             'epsilon': epsilon,}
-        # layers
-        self._embed = mlable.layers.embedding.TokunEmbedding(input_dim=input_dim, output_dim=embed_dim // token_dim, name='embed')
+        # the inputs is always UTF-32-BE bytes => 256
+        self._embed = mlable.layers.embedding.TokunEmbedding(input_dim=256, output_dim=embed_dim // input_dim, name='embed')
+        # blocks
         self._blocks = [
             llaminate.layers.DecoderBlock(
                 num_heads=num_heads,
@@ -136,7 +131,8 @@ class Transformer(tf.keras.models.Model):
                 epsilon=epsilon,
                 name='block-{}'.format(__i))
             for __i in range(num_layers)]
-        self._head = tf.keras.layers.Dense(units=output_dim, activation='sigmoid', use_bias=False, kernel_initializer='glorot_uniform', bias_initializer='zeros', name='head')
+        # 8 bits for each input byte
+        self._head = tf.keras.layers.Dense(units=8 * input_dim, activation='sigmoid', use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', name='head')
 
     def call(self, inputs: tuple, attention_mask: tf.Tensor=None, **kwargs) -> tf.Tensor:
         # embed
