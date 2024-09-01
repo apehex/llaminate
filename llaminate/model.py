@@ -57,10 +57,10 @@ class CacheTransformer(tf.keras.models.Model):
 
     def build(self, inputs_shape: tf.TensorShape) -> None:
         __inputs_shape = list(inputs_shape)
-        # both inputs and contexts have the same feature dimension after embedding
-        __inputs_shape[-1] = self._config['embed_dim']
         # the embeddings are entirely defined in the constructor
-        self._embed.build()
+        self._embed.build(__inputs_shape)
+        # update the feature axis after embedding
+        __inputs_shape[-1] = self._config['embed_dim']
         # propagate the shapes through the child layers
         for __b in self._blocks: __b.build(__inputs_shape)
         self._head.build(__inputs_shape)
