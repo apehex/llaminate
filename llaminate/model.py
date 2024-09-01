@@ -55,6 +55,18 @@ class CacheTransformer(tf.keras.models.Model):
         # 8 bits for each input byte
         self._head = tf.keras.layers.Dense(units=8 * input_dim, activation='sigmoid', use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', name='head')
 
+    def build(self, inputs_shape: tf.TensorShape) -> None:
+        __inputs_shape = list(inputs_shape)
+        # both inputs and contexts have the same feature dimension after embedding
+        __inputs_shape[-1] = self._config['embed_dim']
+        # the embeddings are entirely defined in the constructor
+        self._embed.build()
+        # propagate the shapes through the child layers
+        for __b in self._blocks: __b.build(__inputs_shape)
+        self._head.build(__inputs_shape)
+        # register
+        self.built = True
+
     def call(self, inputs: tuple, attention_mask: tf.Tensor=None, **kwargs) -> tf.Tensor:
         # embed
         __y = self._embed(inputs)
