@@ -16,12 +16,12 @@ class CacheDecoderBlockTest(tf.test.TestCase):
                     'head_dim': 2,
                     'hidden_dim': 16},
                 'input': {
-                    'inputs': tf.random.uniform(shape=(2, 1, 4), dtype=tf.dtypes.float32),
+                    'inputs': tf.random.uniform(shape=(2, 3, 4), dtype=tf.dtypes.float32),
                     'cache': mlable.utils.create_cache(batch_dim=2, cache_dim=3, head_dim=2, num_heads=2),
                     'position': 2,
                     'training': False,},
                 'output': {
-                    'shape': (2, 1, 4),},
+                    'shape': (2, 3, 4),},
                 'cache': {
                     'shape': (2, 2, 3, 2, 2),},},
             {
@@ -31,12 +31,12 @@ class CacheDecoderBlockTest(tf.test.TestCase):
                     'head_dim': 2,
                     'hidden_dim': 16},
                 'input': {
-                    'inputs': tf.random.uniform(shape=(2, 1, 4), dtype=tf.dtypes.float32),
-                    'cache': mlable.utils.create_cache(batch_dim=2, cache_dim=3, head_dim=2, num_heads=2),
+                    'inputs': tf.random.uniform(shape=(2, 8, 4), dtype=tf.dtypes.float32),
+                    'cache': mlable.utils.create_cache(batch_dim=2, cache_dim=16, head_dim=2, num_heads=2),
                     'position': 3,
                     'training': True,}, # ignore cache
                 'output': {
-                    'shape': (2, 1, 4),},
+                    'shape': (2, 8, 4),},
                 'cache': {
                     'values': None,},},] # cache ignored during training
 
