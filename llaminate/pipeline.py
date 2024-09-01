@@ -4,6 +4,7 @@ import math
 import tensorflow as tf
 
 import mlable.ops
+import mlable.shaping
 import tokun.pipeline
 import tokun.model
 
@@ -25,7 +26,7 @@ def binarize(data: tf.Tensor) -> tf.Tensor:
     #  decompose in base 2
     __output = mlable.ops.expand_base(data, base=2, depth=8) # 8 bits / byte
     # merge all the bits in a single sequence
-    return mlable.ops.merge(__output, left_axis=-2, right_axis=-1, left=True)
+    return mlable.shaping.merge(__output, left_axis=-2, right_axis=-1, left=True)
 
 # PREPROCESS ##################################################################
 
@@ -104,7 +105,7 @@ def postprocess(prediction: tf.Tensor, random: bool=False) -> tf.Tensor:
     # values encoded as binary arrays
     __output = mlable.sampling.binary(prediction=__output, depth=8, threshold=0.5, random=random)
     # merge the token and sequence axes
-    __output = mlable.ops.merge(__output, left_axis=-2, right_axis=-1, left=True)
+    __output = mlable.shaping.merge(__output, left_axis=-2, right_axis=-1, left=True)
     # merge the bytes into codepoints
     __output = tokun.pipeline.codepoint(data=__output)
     # decode the UTF-32-BE codepoints

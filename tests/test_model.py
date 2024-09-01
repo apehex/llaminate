@@ -2,7 +2,7 @@ import math
 
 import tensorflow as tf
 
-import mlable.utils
+import mlable.shaping
 import tokun.model
 
 import llaminate.model
@@ -76,7 +76,7 @@ class CacheTransformerTest(tf.test.TestCase):
         # embed
         __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['input_dim']], dtype=tf.int32)
         __y = self._model._embed(__x)
-        __z = tf.tile(__y[:, :1, :], mlable.utils.filter_shape(__y.shape, axes=[1])) # repeat first feature vector
+        __z = tf.tile(__y[:, :1, :], mlable.shaping.filter_shape(__y.shape, axes=[1])) # repeat first feature vector
         self.assertAllEqual(__y , __z)
         # self attention
         __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32)
@@ -117,7 +117,6 @@ class TransformerTest(tf.test.TestCase):
         assert len(self._model._blocks) == self._config_model['num_layers']
         # self attention
         assert all(bool(__b._attention._input_norm) for __b in self._model._blocks)
-        assert all(bool(__b._attention._context_norm) for __b in self._model._blocks)
         assert all(bool(__b._attention._position) for __b in self._model._blocks)
         assert all(list(__b._attention._attention._key_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
         assert all(list(__b._attention._attention._query_dense.kernel.shape) == [self._config_model['embed_dim'], self._config_model['num_heads'], self._config_model['head_dim']] for __b in self._model._blocks)
@@ -143,7 +142,7 @@ class TransformerTest(tf.test.TestCase):
         # embed
         __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['input_dim']], dtype=tf.int32)
         __y = self._model._embed(__x)
-        __z = tf.tile(__y[:, :1, :], mlable.utils.filter_shape(__y.shape, axes=[1])) # repeat first feature vector
+        __z = tf.tile(__y[:, :1, :], mlable.shaping.filter_shape(__y.shape, axes=[1])) # repeat first feature vector
         self.assertAllEqual(__y , __z)
         # self attention
         __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32)
