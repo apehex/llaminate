@@ -36,6 +36,13 @@ class CacheDecoderBlock(tf.keras.layers.Layer):
         self._attention = mlable.blocks.transformer.CachedSelfAttentionBlock(num_heads=num_heads, head_dim=head_dim, sequence_axis=sequence_axis, epsilon=epsilon, center=False, scale=False)
         self._ffn = mlable.blocks.transformer.FeedForwardBlock(embed_dim=embed_dim, hidden_dim=hidden_dim, epsilon=epsilon, center=False, scale=False)
 
+    def build(self, input_shape: tf.TensorShape) -> None:
+        # the input shape is propagated / unchanged
+        self._attention.build(input_shape)
+        self._ffn.build(input_shape)
+        # register
+        self.built = True
+
     def call(
         self,
         inputs: tf.Tensor,
@@ -57,7 +64,7 @@ class CacheDecoderBlock(tf.keras.layers.Layer):
         return __config
 
     @classmethod
-    def from_config(cls, config) -> tf.keras.layers.Layer:
+    def from_config(cls, config: dict) -> tf.keras.layers.Layer:
         return cls(**config)
 
 # WITHOUT CACHE ###############################################################
@@ -87,6 +94,13 @@ class DecoderBlock(tf.keras.layers.Layer):
         self._attention = mlable.blocks.transformer.SelfAttentionBlock(num_heads=num_heads, head_dim=head_dim, sequence_axis=sequence_axis, epsilon=epsilon, center=False, scale=False)
         self._ffn = mlable.blocks.transformer.FeedForwardBlock(embed_dim=embed_dim, hidden_dim=hidden_dim, epsilon=epsilon, center=False, scale=False)
 
+    def build(self, input_shape: tf.TensorShape) -> None:
+        # the input shape is propagated / unchanged
+        self._attention.build(input_shape)
+        self._ffn.build(input_shape)
+        # register
+        self.built = True
+
     def call(
         self,
         inputs: tf.Tensor,
@@ -104,5 +118,5 @@ class DecoderBlock(tf.keras.layers.Layer):
         return __config
 
     @classmethod
-    def from_config(cls, config) -> tf.keras.layers.Layer:
+    def from_config(cls, config: dict) -> tf.keras.layers.Layer:
         return cls(**config)
