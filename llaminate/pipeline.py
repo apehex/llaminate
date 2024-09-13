@@ -101,9 +101,9 @@ def preprocess_factory(batch_dim: int, sample_dim: int, input_dim: int, features
 
 # < ###########################################################################
 
-def postprocess(prediction: tf.Tensor, random: bool=False) -> tf.Tensor:
+def postprocess(prediction: tf.Tensor, threshold: float=0.5, random: bool=False) -> tf.Tensor:
     # values encoded as binary arrays
-    __output = mlable.sampling.binary(prediction=prediction, depth=8, threshold=0.5, random=random)
+    __output = mlable.sampling.binary(prediction=prediction, depth=8, threshold=threshold, random=random)
     # merge the token and sequence axes
     __output = mlable.shaping.merge(__output, left_axis=-2, right_axis=-1, left=True)
     # merge the bytes into codepoints
