@@ -8,10 +8,9 @@ packages = [{include = "llaminate"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10, <3.13"
-tensorflow = ">=2.15"
+tensorflow = ">=2.16, <2.19"
 tensorflow-datasets = ">=4.9"
-mlable = {path = "../mlable/", develop = true} # mlable = ">=0.8"
-tokun = {path = "../tokun/", develop = true} # tokun = ">=0.13"
+mlable = ">=0.15" # mlable = {path = "../mlable/", develop = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
