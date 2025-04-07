@@ -53,15 +53,17 @@ class Transformer(tf.keras.models.Model):
                 name='block-{}'.format(__i))
             for __i in range(num_layers)]
         # 8 bits for each input byte
-        self._head = tf.keras.layers.Dense(units=8 * input_dim, activation='sigmoid', use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', name='head')
+        self._head = tf.keras.layers.Dense(units=8 * input_dim, activation=None, use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', name='head')
 
-    def call(self, inputs: tuple, attention_mask: tf.Tensor=None, **kwargs) -> tf.Tensor:
+    def call(self, inputs: tf.Tensor, logits: bool=True, **kwargs) -> tf.Tensor:
         # embed
-        __y = self._embed(inputs)
+        __outputs = self._embed(inputs)
         # blocks
-        __y = functools.reduce(lambda __x, __b: __b(inputs=__x, attention_mask=attention_mask, **kwargs), self._blocks, __y)
+        __outputs = functools.reduce(lambda __x, __b: __b(inputs=__x, use_causal_mask=True, **kwargs), self._blocks, __outputs)
         # decompress
-        return self._head(__y)
+        __outputs = self._head(__outputs)
+        # scale
+        return __outputs if logits else tf.nn.softmax(__outputs, axis=-1)
 
     def get_config(self) -> dict:
         __config = super(Transformer, self).get_config()
