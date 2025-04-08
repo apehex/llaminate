@@ -52,7 +52,7 @@ class Transformer(tf.keras.models.Model):
     def build(self, input_shape: tuple) -> None:
         __shape = tuple(input_shape)
         # group the bytes token by token
-        self._group = mlable.layers.shaping.Divide(input_axis=-2, output_axis=-1, factor=self._config['token_dim'], insert=True)
+        self._group = mlable.layers.shaping.Divide(input_axis=-2, output_axis=-1, factor=self._config['token_dim'], insert=True, name='group')
         # the inputs is always UTF-32-BE bytes => 256
         self._embed = mlable.layers.embedding.TokunEmbedding(input_dim=256, output_dim=self._config['embed_dim'] // self._config['token_dim'], name='embed')
         # blocks
@@ -73,7 +73,7 @@ class Transformer(tf.keras.models.Model):
         # 8 bits for each input byte
         self._head = tf.keras.layers.Dense(units=8 * self._config['token_dim'], activation=None, use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', name='head')
         # flatten the bytes
-        self._split = mlable.layers.shaping.Divide(input_axis=-1, output_axis=-2, factor=self._config['token_dim'], insert=False)
+        self._split = mlable.layers.shaping.Divide(input_axis=-1, output_axis=-2, factor=self._config['token_dim'], insert=False, name='split')
         # build
         for __l in [self._group, self._embed] + self._blocks + [self._head, self._split]:
             __l.build(__shape)
