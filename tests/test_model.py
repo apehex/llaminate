@@ -57,6 +57,7 @@ class TransformerTest(tf.test.TestCase):
         # call
         __y = self._model.call(inputs=__x, logits=True, training=False)
         # checks
+        self.assertEqual(self._model.compute_output_shape(__x.shape), (self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], 8))
         self.assertEqual(tuple(__y.shape), (self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], 8))
 
     def test_null_values(self):
