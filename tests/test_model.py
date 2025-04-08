@@ -4,7 +4,7 @@ import tensorflow as tf
 
 import mlable.shaping
 
-import llaminate.model
+import llaminate.models
 import llaminate.utils
 
 # WITHOUT CACHE ###############################################################
@@ -25,7 +25,7 @@ class TransformerTest(tf.test.TestCase):
             'epsilon': 1e-6,
             'dropout': 0.0}
         # init transformer
-        self._model = llaminate.model.Transformer(**self._config_model)
+        self._model = llaminate.models.Transformer(**self._config_model)
         # build
         __x = tf.zeros((self._config_encoder['batch_dim'], self._config_encoder['sample_dim']))
         self._model(inputs=__x, logits=True)
