@@ -7,6 +7,7 @@ import tensorflow as tf
 
 import mlable.blocks.transformer
 import mlable.layers.embedding
+import mlable.layers.shaping
 
 import llaminate.layers
 
@@ -43,6 +44,8 @@ class Transformer(tf.keras.models.Model):
             'hidden_dim': hidden_dim,
             'epsilon': epsilon,
             'dropout': dropout,}
+        # group the bytes token by token
+        self._group = mlable.layers.shaping.Divide(input_axis=-2, output_axis=-1, factor=token_dim, insert=True)
         # the inputs is always UTF-32-BE bytes => 256
         self._embed = mlable.layers.embedding.TokunEmbedding(input_dim=256, output_dim=embed_dim // token_dim, name='embed')
         # blocks
@@ -62,14 +65,20 @@ class Transformer(tf.keras.models.Model):
             for __i in range(layer_num)]
         # 8 bits for each input byte
         self._head = tf.keras.layers.Dense(units=8 * token_dim, activation=None, use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', name='head')
+        # flatten the bytes
+        self._split = mlable.layers.shaping.Divide(input_axis=-1, output_axis=-2, factor=token_dim, insert=False)
 
     def call(self, inputs: tf.Tensor, logits: bool=True, **kwargs) -> tf.Tensor:
-        # embed
-        __outputs = self._embed(inputs)
-        # blocks
+        # group the bytes by token (B, S * T) => (B, S, T)
+        __outputs = self._group(inputs)
+        # embed the bytes (B, S, T) => (B, S, T * E) = (B, S, L)
+        __outputs = self._embed(__outputs)
+        # transform (B, S, T * E)
         __outputs = functools.reduce(lambda __x, __b: __b(query=__x, key=__x, value=__x, use_causal_mask=True, **kwargs), self._blocks, __outputs)
-        # decompress
+        # decompress (B, S, T * E) => (B, S, T * 8)
         __outputs = self._head(__outputs)
+        # split the tokens into individual bytes (B, S, T * 8) => (B, S * T, 8)
+        __outputs = self._split(__outputs)
         # scale
         return __outputs if logits else tf.nn.softmax(__outputs, axis=-1)
 

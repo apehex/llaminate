@@ -13,7 +13,7 @@ class TransformerTest(tf.test.TestCase):
     def setUp(self):
         self._config_encoder = {
             'batch_dim': 2,
-            'sample_dim': 16,
+            'sample_dim': 16 * 64,
             'token_dim': 64}
         self._config_model = {
             'layer_num': 2,
@@ -27,7 +27,7 @@ class TransformerTest(tf.test.TestCase):
         # init transformer
         self._model = llaminate.model.Transformer(**self._config_model)
         # build
-        __x = tf.zeros((self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']))
+        __x = tf.zeros((self._config_encoder['batch_dim'], self._config_encoder['sample_dim']))
         self._model(inputs=__x, logits=True)
 
     def test_internals(self):
@@ -49,20 +49,22 @@ class TransformerTest(tf.test.TestCase):
         assert all(list(__b._ffn._ffn._output.kernel.shape) == [self._config_model['hidden_dim'], self._config_model['embed_dim']] for __b in self._model._blocks)
         # head
         assert list(self._model._head.kernel.shape) == [self._config_model['embed_dim'], 8 * self._config_model['token_dim']]
-        # assert list(self._model._head.bias.shape) == [8 * self._config_model['token_dim']]
+        assert list(self._model._head.bias.shape) == [8 * self._config_model['token_dim']]
 
     def test_shapes(self):
         # inputs
-        __x = tf.ones((self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']), dtype=tf.int32)
+        __x = tf.ones((self._config_encoder['batch_dim'], self._config_encoder['sample_dim']), dtype=tf.int32)
         # call
         __y = self._model.call(inputs=__x, logits=True, training=False)
         # checks
-        self.assertEqual(tuple(__y.shape), (self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], 8 * self._config_model['token_dim']))
+        self.assertEqual(tuple(__y.shape), (self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], 8))
 
     def test_null_values(self):
+        __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim']], dtype=tf.int32)
+        # group
+        __y = self._model._group(__x)
         # embed
-        __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_encoder['token_dim']], dtype=tf.int32)
-        __y = self._model._embed(__x)
+        __y = self._model._embed(__y)
         __z = tf.tile(__y[:, :1, :], mlable.shaping.filter_shape(__y.shape, axes=[1])) # repeat first feature vector
         self.assertAllEqual(__y , __z)
         # self attention
