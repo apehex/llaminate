@@ -5,7 +5,7 @@ import tensorflow as tf
 
 import mlable.ops
 import mlable.shaping
-import tokun.pipeline.text
+import mlable.text
 
 # MASK ########################################################################
 
@@ -29,33 +29,40 @@ def binarize(data: tf.Tensor) -> tf.Tensor:
 
 # PREPROCESS ##################################################################
 
-def _parser_factory(token_dim: int, features: list, separator: str='\x1d') -> callable:
+def _parser_factory(token_dim: int, features: list, separator: str='\x1d', drop_dim: int=0, encoding_dim: int=4) -> callable:
+    # number of characters per token
+    __ticks = token_dim // max(1, encoding_dim - drop_dim)
+    # wrapper
     def __parser(inputs) -> tuple:
         # fetch the relevant features
         __inputs = tf.strings.join(inputs=[inputs[__f] for __f in features], separator=separator)
         # (input, target) where target is the next token for each input
-        return (tokun.pipeline.text.offset(data=__inputs, ticks=token_dim // 4), __inputs)
+        return (mlable.text.offset(data=__inputs, ticks=__ticks), __inputs)
     # customized fn
     return __parser
 
-def _encoder_factory(token_dim: int, sample_dim: int) -> callable:
-    # text encoding (UTF-32-BE)
-    __utf32 = functools.partial(tokun.pipeline.text.encode, token_dim=token_dim, sample_dim=sample_dim, output_dtype=tf.uint8)
+def _encoder_factory(sample_dim: int, encoding: str='UTF-32-BE') -> callable:
+    # text encoding (UTF-32-BE or UTF-8)
+    __utf = functools.partial(mlable.text.encode, sample_dim=sample_dim, output_dtype=tf.uint8, output_encoding=encoding)
     # encode all
     def __encoder(inputs: tf.Tensor, targets: tf.Tensor) -> tuple:
-        return (__utf32(inputs), __utf32(targets))
+        return (__utf(inputs), __utf(targets))
     # customized fn
     return __encoder
 
-def _formatter_factory(batch_dim: int, sample_dim: int) -> callable:
+def _formatter_factory(batch_dim: int, sample_dim: int, drop_dim: int=0, encoding_dim: int=4) -> callable:
+    # sample dimension after trimming
+    __dim = max(1, encoding_dim - drop_dim) * (sample_dim // encoding_dim)
+    # remove the leading 0s in UTF-32-BE
+    __trim = functools.partial(mlable.text.trim, count=drop_dim, outof=encoding_dim)
     # enforce types
     __cast_i = functools.partial(tf.cast, dtype=tf.int32)
     __cast_t = functools.partial(tf.cast, dtype=tf.float32)
     # enforce shapes
-    __reshape = functools.partial(tf.reshape, shape=(batch_dim, sample_dim))
+    __reshape = functools.partial(tf.reshape, shape=(batch_dim, __dim))
     # chain the operations
     def __formatter(inputs: tf.Tensor, targets: tf.Tensor) -> tuple:
-        return (__cast_i(__reshape(inputs)), __cast_t(__reshape(targets)))
+        return (__cast_i(__reshape(__trim(inputs))), __cast_t(__reshape(__trim(targets))))
     # customized fn
     return __formatter
 
@@ -81,18 +88,19 @@ def _preprocess(inputs: tf.Tensor, parser: callable, encoder: callable, embedder
     __inputs, __targets = encoder(inputs=__inputs, targets=__targets)
     # enforce types + shapes
     __inputs, __targets = formatter(inputs=__inputs, targets=__targets)
-    # embed with tokun
+    # embed in binary
     __inputs, __targets = embedder(inputs=__inputs, targets=__targets)
     # sequence mask to ignore padding during training
     __weights = masker(inputs=__inputs)
     # pack both sourcecode and bytecode into the model inputs
     return (__inputs, __targets, __weights)
 
-def preprocess_factory(batch_dim: int, sample_dim: int, token_dim: int, features: list, separator: str='\x1d', data_weight: float=1.0, padding_weight: float=0.0) -> callable:
+def preprocess_factory(batch_dim: int, sample_dim: int, token_dim: int, features: list, separator: str='\x1d', encoding: str='UTF-32-BE', data_weight: float=1.0, padding_weight: float=0.0, drop_dim: int=0) -> callable:
+    __encoding_dim = 4 if '32' in encoding else 1
     # custom fn
-    __parser = _parser_factory(token_dim=token_dim, features=features, separator=separator)
-    __encoder = _encoder_factory(sample_dim=sample_dim, token_dim=token_dim)
-    __formatter = _formatter_factory(batch_dim=batch_dim, sample_dim=sample_dim)
+    __parser = _parser_factory(token_dim=token_dim, drop_dim=drop_dim, encoding_dim=__encoding_dim, features=features, separator=separator)
+    __encoder = _encoder_factory(sample_dim=sample_dim, encoding=encoding)
+    __formatter = _formatter_factory(batch_dim=batch_dim, sample_dim=sample_dim, drop_dim=drop_dim, encoding_dim=__encoding_dim)
     __embedder = _embedder_factory()
     __masker = _masker_factory(token_dim=token_dim, data_weight=data_weight, padding_weight=padding_weight)
     # actual preprocessing function
