@@ -108,12 +108,8 @@ def preprocess_factory(batch_dim: int, sample_dim: int, token_dim: int, features
 
 # < ###########################################################################
 
-def postprocess(prediction: tf.Tensor, threshold: float=0.5, random: bool=False) -> tf.Tensor:
+def postprocess(logits: tf.Tensor, threshold: float=0.0, temp: float=1.0, topp: float=0.0, topk: int=0, seed: int=None, dtype: tf.DType=tf.int32, encoding: str='UTF-32-BE') -> tf.Tensor:
     # values encoded as binary arrays
-    __output = mlable.sampling.binary(prediction=prediction, depth=8, threshold=threshold, random=random)
-    # merge the token and sequence axes
-    __output = mlable.shaping.merge(__output, left_axis=-2, right_axis=-1, left=True)
-    # merge the bytes into codepoints
-    __output = tokun.pipeline.codepoint(data=__output)
-    # decode the UTF-32-BE codepoints
-    return tokun.pipeline.decode(data=__output)
+    __bytes = mlable.sampling.binary(logits=logits, threshold=threshold, temp=temp, topp=topp, topk=topk, seed=seed, dtype=dtype)
+    # decode the bytes into strings
+    return mlable.text.postprocess(data=__bytes, encoding=encoding)
