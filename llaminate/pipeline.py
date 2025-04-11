@@ -19,14 +19,6 @@ def mask(data: tf.Tensor, token_dim: int, padding_value: int=0, padding_weight: 
     # rescale the weights
     return data_weight * __weights + padding_weight * (1. - __weights)
 
-# BINARIZE ####################################################################
-
-def binarize(data: tf.Tensor) -> tf.Tensor:
-    #  decompose in base 2
-    __output = mlable.ops.expand_base(data, base=2, depth=8) # 8 bits / byte
-    # merge all the bits in a single sequence
-    return mlable.shaping.merge(__output, left_axis=-2, right_axis=-1, left=True)
-
 # PREPROCESS ##################################################################
 
 def _parser_factory(token_dim: int, features: list, separator: str='\x1d', drop_dim: int=0, encoding_dim: int=4) -> callable:
