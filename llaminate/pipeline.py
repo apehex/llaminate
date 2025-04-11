@@ -9,11 +9,11 @@ import mlable.text
 
 # MASK ########################################################################
 
-def mask(data: tf.Tensor, token_dim: int, padding_value: int=0, padding_weight: float=0.0, data_weight: float=1.0, dtype: tf.DType=tf.float32) -> tf.Tensor:
+def mask(data: tf.Tensor, encoding_dim: int, padding_value: int=0, padding_weight: float=0.0, data_weight: float=1.0, dtype: tf.DType=tf.float32) -> tf.Tensor:
     # byte level mask (B, S * T)
     __weights = tf.not_equal(data, padding_value)
     # token level mask, but expressed byte by byte
-    __weights = mlable.ops.reduce_any(data=__weights, group=token_dim, axis=-1, keepdims=True)
+    __weights = mlable.ops.reduce_any(data=__weights, group=encoding_dim, axis=-1, keepdims=True)
     # cast from bool to allow multiplications
     __weights = tf.cast(__weights, dtype=dtype)
     # rescale the weights
@@ -65,9 +65,9 @@ def _embedder_factory() -> callable:
     # customized fn
     return __embedder
 
-def _masker_factory(token_dim: int, data_weight: float=1.0, padding_weight: float=0.0) -> callable:
+def _masker_factory(encoding_dim: int, data_weight: float=1.0, padding_weight: float=0.0) -> callable:
     def __masker(inputs: tf.Tensor) -> tf.Tensor:
-        return mask(data=inputs, token_dim=token_dim, data_weight=data_weight, padding_weight=padding_weight, padding_value=0, dtype=tf.float32)
+        return mask(data=inputs, encoding_dim=encoding_dim, data_weight=data_weight, padding_weight=padding_weight, padding_value=0, dtype=tf.float32)
     # customized fn
     return __masker
 
@@ -94,7 +94,7 @@ def preprocess_factory(batch_dim: int, sample_dim: int, token_dim: int, features
     __encoder = _encoder_factory(sample_dim=sample_dim, encoding=encoding)
     __formatter = _formatter_factory(batch_dim=batch_dim, sample_dim=sample_dim, drop_dim=drop_dim, encoding_dim=__encoding_dim)
     __embedder = _embedder_factory()
-    __masker = _masker_factory(token_dim=token_dim, data_weight=data_weight, padding_weight=padding_weight)
+    __masker = _masker_factory(encoding_dim=__encoding_dim, data_weight=data_weight, padding_weight=padding_weight)
     # actual preprocessing function
     return functools.partial(_preprocess, parser=__parser, encoder=__encoder, embedder=__embedder, masker=__masker, formatter=__formatter)
 
