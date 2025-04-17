@@ -3,8 +3,7 @@ import math
 
 import tensorflow as tf
 
-import mlable.ops
-import mlable.shaping
+import mlable.maths.ops
 import mlable.text
 
 # MASK ########################################################################
@@ -13,7 +12,7 @@ def mask(data: tf.Tensor, encoding_dim: int, padding_value: int=0, padding_weigh
     # byte level mask (B, S * T)
     __weights = tf.not_equal(data, padding_value)
     # token level mask, but expressed byte by byte
-    __weights = mlable.ops.reduce_any(data=__weights, group=encoding_dim, axis=-1, keepdims=True)
+    __weights = mlable.maths.ops.reduce_any(data=__weights, group=encoding_dim, axis=-1, keepdims=True)
     # cast from bool to allow multiplications
     __weights = tf.cast(__weights, dtype=dtype)
     # rescale the weights
@@ -61,7 +60,7 @@ def _formatter_factory(batch_dim: int, sample_dim: int, drop_dim: int=0, encodin
 def _embedder_factory() -> callable:
     # embed all
     def __embedder(inputs: tf.Tensor, targets: tf.Tensor) -> tuple:
-        return (inputs, mlable.ops.expand_base(targets, base=2, depth=8))
+        return (inputs, mlable.maths.ops.expand_base(targets, base=2, depth=8))
     # customized fn
     return __embedder
 
