@@ -2,7 +2,7 @@ import math
 
 import tensorflow as tf
 
-import mlable.shaping
+import mlable.shapes
 
 import llaminate.models
 import llaminate.utils
@@ -66,7 +66,7 @@ class TransformerTest(tf.test.TestCase):
         __y = self._model._group(__x)
         # embed
         __y = self._model._embed(__y)
-        __z = tf.tile(__y[:, :1, :], mlable.shaping.filter_shape(__y.shape, axes=[1])) # repeat first feature vector
+        __z = tf.tile(__y[:, :1, :], mlable.shapes.filter(__y.shape, axes=[1])) # repeat first feature vector
         self.assertAllEqual(__y , __z)
         # self attention
         __x = tf.zeros([self._config_encoder['batch_dim'], self._config_encoder['sample_dim'], self._config_model['embed_dim']], dtype=tf.float32)
